@@ -1286,7 +1286,12 @@ def dump(obj):
                 print_to(out,"\t" + attr + ' ' + repr(val))
 class DDic:
     def __init__(self):
-        pass
+        self.self_dict_getattr_used = False
+        self.method_old_class = False
+        self.method_new_class = False
+        self.self_dict_setattr_used = False
+        self.method_class = None
+        
     
 def pre_disassemble(co):
     global n_seq
@@ -1768,7 +1773,7 @@ def parse_for_special_slot_class(nmcod, seq, nmcl):
         continue
     
 def parse_constructor(nmclass, nmcode):
-    seq = [cco.cmds for cco in all_co.itervalues() if cco.cmds[0][1] == nmcode][0][1]   
+    seq = all_co[N2C(nmcode)].cmds[1]   
     for v in seq:
         v2 = []
         if TCmp(v, v2, ('STORE', (('PyObject_SetAttr', ('?', 'self'), ('CONST', '?')),), ('?',))):
@@ -7039,9 +7044,6 @@ def do_str(add2):
 
 def label_method_class(co):
     nm_for_c = C2N(co)
-    all_co[co].method_new_class = False
-    all_co[co].method_old_class = False
-    all_co[co].method_class = None
     if Is3(None, ('Method', co.co_name), nm_for_c) and\
        not Is3(None, ('ClassMethod', co.co_name), nm_for_c) and\
        not Is3(None, ('StaticMethod', co.co_name), nm_for_c) and \
@@ -9832,14 +9834,15 @@ def generate_header(nm, o, co, ltemp, typed):
         l.append(s)  
     l.append('register PyObject **fastlocals, **freevars;')
     l.append('PyThreadState *tstate = PyThreadState_GET();')
-    if all_co[current_co].method_new_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('PyObject **self_dict;')
-    if all_co[current_co].method_old_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('PyObject *self_dict;')
+    if not redefined_attribute:
+        _ddic = all_co[current_co]    
+        if _ddic.self_dict_getattr_used:
+            if _ddic.method_new_class:
+                l.append('PyObject **self_dict;')
+            elif _ddic.method_old_class:
+                l.append('PyObject *self_dict;')
+            else:
+                Fatal('')    
     if calc_ref_total:
         l.append('Py_ssize_t l_Py_RefTotal;')
     l.append('if (f == NULL) return NULL;')
@@ -9849,14 +9852,15 @@ def generate_header(nm, o, co, ltemp, typed):
     l.append('fastlocals = f->f_localsplus;')
     l.append('freevars = fastlocals + f->f_code->co_nlocals;')
     l.append('f->f_stacktop = NULL;')
-    if all_co[current_co].method_new_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('self_dict = _PyObject_GetDictPtr(GETLOCAL(self));')
-    if all_co[current_co].method_old_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
+    if not redefined_attribute:
+        _ddic = all_co[current_co]    
+        if _ddic.self_dict_getattr_used:
+            if _ddic.method_new_class:
+                l.append('self_dict = _PyObject_GetDictPtr(GETLOCAL(self));')
+            elif _ddic.method_old_class:
+                l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
+            else:
+                Fatal('')    
 ##    if ltemp > 0:
 ##        for n in range(ltemp):
 ##            l.append('temp[' + str(n) + '] = 0;')
@@ -9951,27 +9955,25 @@ def generate_header_direct(nm, o, co, ltemp, typed, hidden):
     if line_number:
         l.append('int PyLine = ' + str(co.co_firstlineno) + ';')     
         l.append('int PyAddr = 0;')     
-    if all_co[current_co].method_new_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('PyObject **self_dict;')
-    if all_co[current_co].method_old_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('PyObject *self_dict;')
+    if not redefined_attribute:
+        _ddic = all_co[current_co]    
+        if _ddic.self_dict_getattr_used:
+            if _ddic.method_new_class:
+                l.append('PyObject **self_dict;')
+            elif _ddic.method_old_class:
+                l.append('PyObject *self_dict;')
     for i in range(cnt_arg):
         if i in hidden:
             continue
         l.append('fastlocals[' + str(i) + '] = Arg_' + str(i) + ';')    
         l.append('Py_INCREF(Arg_' + str(i) +');')    
-    if all_co[current_co].method_new_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('self_dict = _PyObject_GetDictPtr(GETLOCAL(self));')
-    if all_co[current_co].method_old_class and not redefined_attribute and \
-       hasattr(all_co[current_co], 'self_dict_getattr_used') and \
-       all_co[current_co].self_dict_getattr_used:
-        l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
+    if not redefined_attribute:
+        _ddic = all_co[current_co]    
+        if _ddic.self_dict_getattr_used:
+            if _ddic.method_new_class:
+                l.append('self_dict = _PyObject_GetDictPtr(GETLOCAL(self));')
+            elif _ddic.method_old_class:
+                l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
 ##    if ltemp > 0:
 ##        for n in range(ltemp):
 ##            l.append('temp[' + str(n) + '] = 0;')
@@ -14743,6 +14745,7 @@ def generate_store(it, ref, o, expr):
                 o.Stmt('PyDict_SetItem', '((PyInstanceObject *)' + CVar(ref1) + ')->in_dict', it[2], ref)
                 o.Cls(ref1, ref)
                 return
+        _ddic = all_co[current_co]    
         ## if t != None and t.descr == T_NEW_CL_INST:
             ## if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
                ## it[2][1][0:2] != '__':
@@ -14750,50 +14753,36 @@ def generate_store(it, ref, o, expr):
                 ## o.Stmt('PyObject_GenericSetAttr', ref1, it[2], ref)
                 ## o.Cls(ref1, ref)
                 ## return
-        if all_co[current_co].method_new_class and not redefined_attribute and \
-           current_co.co_name != '__init__' and it[1] == ('FAST', 'self')\
+        if not redefined_attribute and it[1] == ('FAST', 'self')\
              and it[2][0] == 'CONST' and \
-             Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
+             Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
                it[2][1][0:2] != '__': 
+            if _ddic.method_new_class and current_co.co_name != '__init__': 
                 o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                all_co[current_co].self_dict_getattr_used = True
+                _ddic.self_dict_getattr_used = True
                 o.Cls(ref)
                 return
-        if all_co[current_co].method_old_class and not redefined_attribute and \
-           current_co.co_name != '__init__' and it[1] == ('FAST', 'self')\
-             and it[2][0] == 'CONST' and \
-             Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__': 
+            elif _ddic.method_old_class and current_co.co_name != '__init__': 
                 o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                all_co[current_co].self_dict_getattr_used = True
+                _ddic.self_dict_getattr_used = True
                 o.Cls(ref)
                 return
-        if all_co[current_co].method_new_class and not redefined_attribute and \
-           current_co.co_name == '__init__' and it[1] == ('FAST', 'self')\
-             and it[2][0] == 'CONST' and \
-             Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__':
-                if hasattr(all_co[current_co], 'self_dict_setattr_used') and \
-                     all_co[current_co].self_dict_setattr_used:
+            elif _ddic.method_new_class and current_co.co_name == '__init__': 
+                if _ddic.self_dict_setattr_used:
                     o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                    all_co[current_co].self_dict_getattr_used = True
+                    _ddic.self_dict_getattr_used = True
                     o.Cls(ref)
                     return
                 else:
-                    all_co[current_co].self_dict_setattr_used = True
-        if all_co[current_co].method_old_class and not redefined_attribute and \
-           current_co.co_name == '__init__' and it[1] == ('FAST', 'self')\
-             and it[2][0] == 'CONST' and \
-             Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__':
-                if hasattr(all_co[current_co], 'self_dict_setattr_used') and \
-                     all_co[current_co].self_dict_setattr_used:
+                    _ddic.self_dict_setattr_used = True
+            elif _ddic.method_old_class and current_co.co_name == '__init__': 
+                if _ddic.self_dict_setattr_used:
                     o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                    all_co[current_co].self_dict_getattr_used = True
+                    _ddic.self_dict_getattr_used = True
                     o.Cls(ref)
                     return
                 else:
-                    all_co[current_co].self_dict_setattr_used = True
+                    _ddic.self_dict_setattr_used = True
         ref1, ref2 = Expr(o, it[1:])
         o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
         o.Cls(ref, ref1, ref2)
@@ -15185,6 +15174,113 @@ def Str_for_C(s):
                 h = '0' + h
             r += '\\x' + h    
     return '"' + r + '"'            
+
+def generate_SetAttr(it, ref, o, expr):
+    t = TypeExpr(it[1])
+    if t != None and t.descr == T_OLD_CL_INST:
+        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__':
+            ref1 = Expr1(it[1], o)
+            o.Stmt('PyDict_SetItem', '((PyInstanceObject *)' + CVar(ref1) + ')->in_dict', it[2], ref)
+            o.Cls(ref1, ref)
+            return
+    _ddic = all_co[current_co]    
+    ## if t != None and t.descr == T_NEW_CL_INST:
+        ## if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
+            ## it[2][1][0:2] != '__':
+            ## ref1 = Expr1(it[1], o)
+            ## o.Stmt('PyObject_GenericSetAttr', ref1, it[2], ref)
+            ## o.Cls(ref1, ref)
+            ## return
+    if not redefined_attribute and it[1] == ('FAST', 'self')\
+            and it[2][0] == 'CONST' and \
+            Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__': 
+        if current_co.co_name != '__init__':        
+            if _ddic.method_new_class: 
+                o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
+                _ddic.self_dict_getattr_used = True
+                o.Cls(ref)
+                return
+            elif _ddic.method_old_class: 
+                o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
+                _ddic.self_dict_getattr_used = True
+                o.Cls(ref)
+                return
+        else:
+            if _ddic.method_new_class: 
+                if _ddic.self_dict_setattr_used:
+                    o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
+                    _ddic.self_dict_getattr_used = True
+                    o.Cls(ref)
+                    return
+                else:
+                    _ddic.self_dict_setattr_used = True
+            elif _ddic.method_old_class: 
+                o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
+                _ddic.self_dict_getattr_used = True
+                o.Cls(ref)
+                return
+    ref1, ref2 = Expr(o, it[1:])
+    o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
+    o.Cls(ref, ref1, ref2)
+    return
+    
+def generate_GetAttr(it,o, forcenewg, typed):
+    t = TypeExpr(it[1])
+    _ddic = all_co[current_co]
+    if t != None and t.descr == T_OLD_CL_INST and not redefined_attribute:
+        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__':
+            r = Expr1(it[1], o)
+            ref = New(None, forcenewg)
+            o.Stmt(ref, '=', 'PyDict_GetItem', '((PyInstanceObject *)' + CVar(r) + ')->in_dict', it[2])
+            o.Cls(r)
+            return ref
+    # in not     
+    elif t != None and t.descr == T_NEW_CL_INST and not redefined_attribute:
+        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__':
+            r = Expr1(it[1], o)
+            dic = New()
+            o.Raw(dic, ' = *_PyObject_GetDictPtr(',r,');')
+            o.INCREF(dic)
+            o.Cls(r)
+            ref = New(None, forcenewg)
+            o.Stmt(ref, '=', 'PyDict_GetItem', dic, it[2])
+            o.Cls(dic)
+            return ref
+    elif _ddic.method_new_class and it[1] == ('FAST', 'self')\
+            and not redefined_attribute:
+        if it[2][0] == 'CONST' and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__': 
+            ref = New(None, forcenewg)
+            o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
+            _ddic.self_dict_getattr_used = True
+            return ref
+    elif _ddic.method_old_class and it[1] == ('FAST', 'self')\
+            and not redefined_attribute:
+        if it[2][0] == 'CONST' and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
+            it[2][1][0:2] != '__': 
+            ref = New(None, forcenewg)
+            o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
+            _ddic.self_dict_getattr_used = True
+            return ref
+    elif t != None and t.descr == types.ModuleType:
+        if it[2][0] == 'CONST' and it[2][1][0:2] != '__' and t.subdescr != None and \
+            ModuleHaveAttr(t.subdescr, it[2][1]):
+            r = Expr1(it[1], o)
+            ref = New(None, forcenewg)
+            o.Raw(ref, ' = PyDict_GetItem(PyModule_GetDict(' + CVar(r) + '), ', it[2], ');')
+            o.INCREF(ref)
+            o.Cls(r)
+            o.Raw('if (', ref, ' == NULL) goto ', labl, ';')
+            UseLabl()
+            return ref
+    elif t != None:
+        Debug('Non-Generic GetAttr type', t, it[2], it[1])
+    return common_call(it[0][1:], it, o, typed, forcenewg)
+    
     
 def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     global _n2c, g_acc2, g_refs2
@@ -15825,67 +15921,8 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         return ref
 
     if head == 'PyObject_GetAttr':
-        t = TypeExpr(it[1])
-        if t != None and t.descr == T_OLD_CL_INST and not redefined_attribute:
-            if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__':
-                r = Expr1(it[1], o)
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', '((PyInstanceObject *)' + CVar(r) + ')->in_dict', it[2])
-                o.Cls(r)
-                return ref
-        # in not     
-        elif t != None and t.descr == T_NEW_CL_INST and not redefined_attribute:
-            if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__':
-                r = Expr1(it[1], o)
-                dic = New()
-                o.Raw(dic, ' = *_PyObject_GetDictPtr(',r,');')
-                o.INCREF(dic)
-                o.Cls(r)
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', dic, it[2])
-                o.Cls(dic)
-                return ref
-        elif all_co[current_co].method_new_class and it[1] == ('FAST', 'self')\
-             and not redefined_attribute:
-            if it[2][0] == 'CONST' and Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__': 
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
-                all_co[current_co].self_dict_getattr_used = True
-                return ref
-        elif all_co[current_co].method_old_class and it[1] == ('FAST', 'self')\
-             and not redefined_attribute:
-            if it[2][0] == 'CONST' and Is3(all_co[current_co].method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__': 
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
-                all_co[current_co].self_dict_getattr_used = True
-                return ref
-        elif t != None and t.descr == types.ModuleType:
-            if it[2][0] == 'CONST' and it[2][1][0:2] != '__' and t.subdescr != None and \
-               ModuleHaveAttr(t.subdescr, it[2][1]):
-                r = Expr1(it[1], o)
-                ref = New(None, forcenewg)
-                o.Raw(ref, ' = PyDict_GetItem(PyModule_GetDict(' + CVar(r) + '), ', it[2], ');')
-                o.INCREF(ref)
-                o.Cls(r)
-                o.Raw('if (', ref, ' == NULL) goto ', labl, ';')
-                UseLabl()
-                return ref
-                ## r = Expr1(it[1], o)
-                ## ref = New(None, forcenewg)
-                ## o.Stmt(ref, '=', 'PyObject_GenericGetAttr', r, it[2])
-                ## o.Cls(r)
-                ## return ref
-        elif t != None:
-            Debug('Non-Generic GetAttr type', t, it[2], it[1])
-        ## if all_co[current_co].method_new_class and it[1] == ('FAST', 'self'):
-## #            r = Expr1(it[1], o)
-            ## ref = New(None, forcenewg)
-            ## o.Stmt(ref, '=', 'PyObject_GenericGetAttr', it[1], it[2])
-            ## return ref
+        return generate_GetAttr(it,o, forcenewg, typed)
+
     if head == 'PyObject_GetAttr3':
         t = TypeExpr(it[1])
         if t != None:
