@@ -358,20 +358,20 @@ T_NEW_CL_INST = 'NewClassInstance'
 class Klass:
     def __init__(self, descr, subdescr = None):
 ##        print 'ppp', descr
-        assert type(descr) in (types.TypeType, str)
+        assert type(descr) in (type, str)
         self.descr = descr
         self.subdescr = subdescr
     def __eq__(self, compared):
         if compared == None:
             return False
-        if type(compared) in (types.TypeType, str):
+        if type(compared) in (type, str):
             assert False
             return False
         return self.descr == compared.descr and self.subdescr == compared.subdescr
     def __ne__(self, compared):
         if compared == None:
             return True
-        if type(compared) in (types.TypeType, str):
+        if type(compared) in (type, str):
             assert False
             return False
         return self.descr != compared.descr or self.subdescr != compared.subdescr
@@ -432,7 +432,7 @@ Kl_Dict = Klass(dict)
 Kl_Set = Klass(set)    
 Kl_FrozenSet = Klass(frozenset)    
 Kl_Long = Klass(long)
-Kl_Type = Klass(types.TypeType)
+Kl_Type = Klass(type)
 ##Kl_TypeType = Kl_Type
 Kl_None = Klass(types.NoneType)
 Kl_File = Klass(types.FileType)
@@ -1289,8 +1289,10 @@ class DDic:
         self.self_dict_getattr_used = False
         self.method_old_class = False
         self.method_new_class = False
+        self.method_any_class = False
         self.self_dict_setattr_used = False
         self.method_class = None
+        self.dict_getattr_used = {}
         
     
 def pre_disassemble(co):
@@ -1435,12 +1437,8 @@ def post_disassemble():
  
     for x, co, cmds in seq:
         current_co = co
-        if Is3(cmds[0][1], 'CalcConstOldClass') and \
-           cmds[1][-1] == ('RETURN_VALUE', ('f->f_locals',)):
-            parse_old_class_define(cmds[0][1], cmds[1][:-1])
-        elif Is3(cmds[0][1], 'CalcConstNewClass') and \
-           cmds[1][-1] == ('RETURN_VALUE', ('f->f_locals',)):
-            parse_new_class_define(cmds[0][1], cmds[1][:-1])
+        if IsAnyClass(cmds[0][1]) and cmds[1][-1] == ('RETURN_VALUE', ('f->f_locals',)):
+            parse_class_def(cmds[0][1], cmds[1][:-1])
         elif Is3(cmds[0][1], 'IsClassCreator', None) and \
            cmds[1][-1] == ('RETURN_VALUE', ('f->f_locals',)):
             parse_for_special_slot_class(cmds[0][1], cmds[1][:-1], Val3(cmds[0][1], 'IsClassCreator'))
@@ -1576,12 +1574,6 @@ def get_default_value1(v):
     return v
 #    Fatal('', '')
 #    return v[1]  
-
-def parse_new_class_define(nm, seq):
-    return parse_class_def(nm, seq)
-
-def parse_old_class_define(nm, seq):
-    return parse_class_def(nm, seq)
 
 def is_simple_attr(expr):
     t = TypeExpr(expr)
@@ -1870,6 +1862,22 @@ def recursive_type_detect(ret, nm):
     while i < len(ret):
         v = ret[i]
         head = v[0]
+        if v[0] == '(FOR':
+            _v = []
+            if TCmp(v, _v,  ('(FOR', (('STORE_FAST', '?'),), \
+                             ('!PyObject_Call', ('!LOAD_BUILTIN', 'range'), \
+                              '?', ('NULL',)))):
+
+                stor = ('STORE_FAST', _v[0])
+                dele = ('DELETE_FAST', _v[0])
+                old = ('FAST', _v[0])
+                new = ('PY_TYPE', int, None, old, None)             
+                j = i+1    
+                if not repr(dele) in repr(ret[j]) and not repr(stor) in repr(ret[j]):
+                    ret[j] = replace_subexpr(ret[j], old, new)
+                i = i + 1
+                continue    
+
         if v[0] == '(IF':
             d = {}
             ret[i] = ('(IF', type_in_if(v[1], d))
@@ -3667,7 +3675,7 @@ def module_dict_to_type_dict(d):
             if t2 != None:
                 t = t2
         else:
-            if type(t) != types.TypeType:
+            if type(t) != type:
                 t = Klass(T_NEW_CL_INST, v.__class__.__name__)
             else:    
                 t = Klass(t)    
@@ -6807,11 +6815,6 @@ class Out(list):
         UseLabl()
         s = do_str(add2)
         self.append(s)
-        
-    def __iadd__(self, it):
-        assert type(it) == str
-        self.append(CVar(it))
-        return self
 
     def Raw(self, *t):
         s = ''
@@ -7000,6 +7003,13 @@ class Out(list):
         s = do_str(t)  
         self.append(s)
 
+def ConC(*t):
+    s = ''
+    for it in t:
+        s += CVar(it)
+    return s
+
+
 def mk_t2(t):
     t2 = ['if (', t[0], '(']
     for v in t[1:]:
@@ -7056,8 +7066,10 @@ def label_method_class(co):
         all_co[co].method_class = cl
         if Is3(cl, 'CalcConstNewClass'):
             all_co[co].method_new_class = True
+            all_co[co].method_any_class = True
         elif Is3(cl, 'CalcConstOldClass'):
             all_co[co].method_old_class = True
+            all_co[co].method_any_class = True
     
 
 def generate(cmds, co, filename_, nm_for_c):
@@ -7100,14 +7112,14 @@ def generate(cmds, co, filename_, nm_for_c):
             ## is_new_class = False
         ## print 'Not direct method %s (%s) of %s' % (co.co_name, nm_for_c, cl)    
     if stat_func == func:
-        o += '{'
+        o.Raw('{')
         o.Raw('FILE * _refs = fopen(\"%s_start\", \"w+\");' % func)
         o.Raw('_Py_PrintReferences2(_refs);')   
         o.Raw('fclose(_refs);')     
-        o += '}'
+        o.Raw('}')
     o = generate_list(cmds[1], o)
     generate_default_exception_handler(o)
-    o += '}'
+    o.Raw('}')
     set_toerr_back(o)
     generate_header(cmds[0][1], o, co, len(tempgen), typed_gen)
     pregenerated.append((cmds, o, co, cmds[0][1], nm_for_c))    
@@ -7170,14 +7182,14 @@ def generate_direct(cmds, co, filename_, nm_for_c):
     seq2 = all_co[co].direct_cmds
     hidden = all_co[co].hidden_arg_direct
     if stat_func == func:
-        o += '{'
+        o.Raw('{')
         o.Raw('FILE * _refs = fopen(\"%s_start\", \"w+\");' % func)
         o.Raw('_Py_PrintReferences2(_refs);')   
         o.Raw('fclose(_refs);')     
-        o += '}'     
+        o.Raw('}')     
     o = generate_list(seq2, o)
     generate_default_exception_handler(o)
-    o += '}'
+    o.Raw('}')
     set_toerr_back(o)
     generate_header_direct(cmds[0][1], o, co, len(tempgen), typed_gen, hidden)
     pregenerated.append((cmds, o, co, cmds[0][1], nm_for_c))    
@@ -7187,8 +7199,8 @@ def generate_default_exception_handler(o):
         o.Stmt('if (0) { ', labl, ':')
         if not is_direct_current:
             if check_recursive_call:
-                o += 'Py_LeaveRecursiveCall();'
-            o += 'PyTraceBack_Here(f);'
+                o.Raw('Py_LeaveRecursiveCall();')
+            o.Raw('PyTraceBack_Here(f);')
             ## if c_line_exceptions:
                 ## o += 'printf(\"Handle raise at C line ' + func +' %d from %d\\n\", __LINE__, f->f_lineno);'
                 ## o += 'if (PyErr_Occurred()) {printf (\"ERROR %s\\n\",PyObject_REPR(PyErr_Occurred()));}'
@@ -7217,10 +7229,12 @@ def generate_default_exception_handler(o):
         if calc_ref_total:
             o.Raw('if ((_Py_RefTotal - l_Py_RefTotal) > 0) {printf ("func ', current_co.co_name, ' delta ref = %d\\n", (int)(_Py_RefTotal - l_Py_RefTotal));}')
         if not is_direct_current:
-            o += 'tstate->frame = f->f_back;'
-
-        o.Stmt('return', 'NULL;')        
-        o += '}'        
+            o.Raw('tstate->frame = f->f_back;')
+        if is_direct_current and IsRetVoid(all_co[current_co].cmds[0][1]):
+            o.Raw('return -1;')        
+        else:    
+            o.Stmt('return', 'NULL;')        
+        o.Raw('}')        
       
 c_head = """
 /* Generated by 2C Python */
@@ -9756,7 +9770,10 @@ def write_as_c(cfile, nmmodule):
                 if arg == '':
                     arg = '  void'    
                 arg = '(' + arg[2:] + ')'
-            print_to(cfile, 'static PyObject * _Direct_' + nm_for_c + arg + ';')    
+            if IsRetVoid(nm_for_c):    
+                print_to(cfile, 'static int _Direct_' + nm_for_c + arg + ';')    
+            else:
+                print_to(cfile, 'static PyObject * _Direct_' + nm_for_c + arg + ';')    
     for a,b,c in Iter3(None, 'Used', True):
         if IsLibr(a):
             print_to(cfile, LibrDcl(a))
@@ -9798,12 +9815,14 @@ def nmvar_to_loc(v):
         v = v.replace('-', '_6_')    
     return v
 
-def generate_stand_header(l, co, ltemp, typed):
+def generate_stand_header(l, co, ltemp, typed, o):
+    orepr = repr(o)
     if ltemp != 0:
         for i in range(ltemp):
             l.append('PyObject * temp_'+str(i)+' = 0;')
     for i,(f,t) in enumerate(typed):
-        if t != 'label':
+        nm = t + '_' + str(i)
+        if t != 'label' and nm in orepr:
             l.append(t + ' ' + t +'_' + str(i) + ';')
     s = 'enum{' 
     for i,v in enumerate(co.co_varnames):        
@@ -9822,7 +9841,7 @@ def generate_header(nm, o, co, ltemp, typed):
     l.append('static PyObject * codefunc_' + nm +'(PyFrameObject *f) {')
     if nm == 'Init_filename':
         l.append('glob = f->f_locals;')
-    generate_stand_header(l, co, ltemp, typed)
+    generate_stand_header(l, co, ltemp, typed, o)
     s = 'enum{' 
     for i,v in enumerate(co.co_cellvars + co.co_freevars):    
         if i > 0:
@@ -9843,6 +9862,8 @@ def generate_header(nm, o, co, ltemp, typed):
                 l.append('PyObject *self_dict;')
             else:
                 Fatal('')    
+        for k in _ddic.dict_getattr_used.iterkeys():
+            l.append('PyObject *_%s_dict = 0;' %k)
     if calc_ref_total:
         l.append('Py_ssize_t l_Py_RefTotal;')
     l.append('if (f == NULL) return NULL;')
@@ -9861,6 +9882,13 @@ def generate_header(nm, o, co, ltemp, typed):
                 l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
             else:
                 Fatal('')    
+        for k in _ddic.dict_getattr_used.iterkeys():
+            l.append('if (PyInstance_Check(GETLOCAL(%s))) {' % k)
+            l.append('_%s_dict = ((PyInstanceObject *)GETLOCAL(%s))->in_dict;' %(k,k))
+            l.append('}else {')
+            l.append('PyObject **refdict = _PyObject_GetDictPtr(GETLOCAL(%s));' %k)
+            l.append('if (refdict && *refdict) _%s_dict = *refdict;' %k )
+            l.append('}')
 ##    if ltemp > 0:
 ##        for n in range(ltemp):
 ##            l.append('temp[' + str(n) + '] = 0;')
@@ -9876,7 +9904,7 @@ def generate_from_frame_to_direct_stube(co, o, nm, cmds):
     l.append('')        
 
     l.append('static PyObject * codefunc_' + nm +'(PyFrameObject *f) {')
-    generate_stand_header(l, co, 0, [])
+    generate_stand_header(l, co, 0, [], o)
     s = 'enum{' 
     for i,v in enumerate(co.co_cellvars + co.co_freevars):    
         if i > 0:
@@ -9888,7 +9916,8 @@ def generate_from_frame_to_direct_stube(co, o, nm, cmds):
         l.append(s)  
     l.append('register PyObject **fastlocals;')
     l.append('PyThreadState *tstate = PyThreadState_GET();')
-    l.append('PyObject * ret;')
+    if not IsRetVoid(nm):
+            l.append('PyObject * ret;')
     l.append('if (f == NULL) return NULL;')
 ##    if check_recursive_call:
 ##        l.append('if (Py_EnterRecursiveCall("")) return NULL;')
@@ -9909,16 +9938,25 @@ def generate_from_frame_to_direct_stube(co, o, nm, cmds):
             arg += ', '
         arg += 'GETLOCAL(' + v + ')'
     arg = '(' + arg + ')'
-    l.append('ret = _Direct_' + nm + arg + ';')
-    l.append('tstate->frame = f->f_back;')
-    l.append('return ret;')
+    if IsRetVoid(nm):
+        l.append('if (_Direct_' + nm + arg + ' == -1) {')
+        l.append('tstate->frame = f->f_back;')
+        l.append('return NULL;')
+        l.append('} else {')
+        l.append('tstate->frame = f->f_back;')
+        l.append('Py_INCREF(Py_None);')
+        l.append('return Py_None;')
+        l.append('}')
+    else:
+        l.append('ret = _Direct_' + nm + arg + ';')
+        l.append('tstate->frame = f->f_back;')
+        l.append('return ret;')
     o[:] = l[:]    
-    o += '}'     
+    o.Raw('}')     
     pregenerated.append((cmds, o, co, cmds[0][1], nm))    
 
 def generate_header_direct(nm, o, co, ltemp, typed, hidden):
     l = []
-
     l.append('')        
     arg = ""
     coarg = co.co_argcount
@@ -9941,8 +9979,11 @@ def generate_header_direct(nm, o, co, ltemp, typed, hidden):
         if arg == '':
             arg = '  void'    
         arg = '(' + arg[2:] + ')'
-    l.append('static PyObject * _Direct_' + nm + arg + '{')
-    generate_stand_header(l, co, ltemp, typed)
+    if IsRetVoid(nm):     
+        l.append('static int _Direct_' + nm + arg + '{')
+    else:    
+        l.append('static PyObject * _Direct_' + nm + arg + '{')
+    generate_stand_header(l, co, ltemp, typed, o)
     s = 'enum{' 
     if len(co.co_varnames) > 0:
         l.append('register PyObject *fastlocals[' + str(len(co.co_varnames)) +'];')
@@ -9962,6 +10003,8 @@ def generate_header_direct(nm, o, co, ltemp, typed, hidden):
                 l.append('PyObject **self_dict;')
             elif _ddic.method_old_class:
                 l.append('PyObject *self_dict;')
+        for k in _ddic.dict_getattr_used.iterkeys():
+            l.append('PyObject *_%s_dict = 0;' %k)
     for i in range(cnt_arg):
         if i in hidden:
             continue
@@ -9974,6 +10017,13 @@ def generate_header_direct(nm, o, co, ltemp, typed, hidden):
                 l.append('self_dict = _PyObject_GetDictPtr(GETLOCAL(self));')
             elif _ddic.method_old_class:
                 l.append('self_dict = ((PyInstanceObject *)GETLOCAL(self))->in_dict;')
+        for k in _ddic.dict_getattr_used.iterkeys():
+            l.append('if (PyInstance_Check(GETLOCAL(%s))) {' % k)
+            l.append('_%s_dict = ((PyInstanceObject *)GETLOCAL(%s))->in_dict;' %(k,k))
+            l.append('}else {')
+            l.append('PyObject **refdict = _PyObject_GetDictPtr(GETLOCAL(%s));' %k)
+            l.append('if (refdict && *refdict) _%s_dict = *refdict;' %k )
+            l.append('}')
 ##    if ltemp > 0:
 ##        for n in range(ltemp):
 ##            l.append('temp[' + str(n) + '] = 0;')
@@ -10029,6 +10079,9 @@ def get_closed_pair(lis,i):
        i1 += 1
     Fatal('Can\'t get closet pair', lis[i:])
     
+def IsRetVoid(nm_c):
+    return nm_c in detected_return_type and detected_return_type[nm_c] == Kl_None
+
 def generate_statement(head,it, o):
     global current_co
     if head == '.L':
@@ -10110,6 +10163,7 @@ def generate_statement(head,it, o):
         return
 
     if head == 'RETURN_VALUE':
+        _ddic = all_co[current_co]    
         for drop in dropped_temp:
             for t in drop[1]:
                 if istempref(t):
@@ -10117,7 +10171,7 @@ def generate_statement(head,it, o):
         try_jump = try_jump_context[:]
         if not is_direct_current:
             if check_recursive_call:
-                o += 'Py_LeaveRecursiveCall();'
+                o.Raw('Py_LeaveRecursiveCall();')
         if len(it[1]) == 1 and it[1][0] == 'f->f_locals':
             assert not is_direct_current
             ref = New()
@@ -10127,13 +10181,19 @@ def generate_statement(head,it, o):
             if checkmaxref != 0:
                 o.Raw('if ((', ref, ')->ob_refcnt > ', checkmaxref, ') printf("line %5d, line %6d \\n", __LINE__,(', ref, ')->ob_refcnt);')
             if not is_direct_current:
-                o += 'tstate->frame = f->f_back;'
+                o.Raw('tstate->frame = f->f_back;')
             o.Raw('return ', ref, ';')
             o.Cls(ref)
             return
+        isvoid = is_direct_current and IsRetVoid(_ddic.cmds[0][1])
+        if isvoid:
+            assert TypeExpr(it[1]) == Kl_None
         ref = Expr1(it[1], o)
-        if not istempref(ref) and not ( is_direct_current and ref[0] == 'FAST'):
-             o.INCREF(ref) 
+        if isvoid:
+            o.Cls(ref)
+            ref = None
+        elif not istempref(ref) and not ( is_direct_current and ref[0] == 'FAST'):
+            o.INCREF(ref) 
 
         if not is_direct_current:
             while len(try_jump) > 0:
@@ -10142,34 +10202,37 @@ def generate_statement(head,it, o):
                         o.Comment((')(FINALLY',))
                         o.Stmt('{')
                         generate_list(try_jump[-1],o)
-                        o += '}'                    
+                        o.Raw('}')                    
                 del try_jump[-1]
 
         if is_direct_current:
             for i,v in enumerate(current_co.co_varnames):
                 nmvar = nmvar_to_loc(v)
-                if len(ref) != 2 or ref[0] != 'FAST' or ref[1] != nmvar: # and i >= current_co.co_argcount:
+                if isvoid or (len(ref) != 2 or ref[0] != 'FAST' or ref[1] != nmvar): 
                     o.CLEAR('GETLOCAL(' + nmvar + ')')
         for i,v in enumerate(current_co.co_freevars):
             nmvar = nmvar_to_loc(v)
-            if len(ref) != 2 or ref[0] != 'LOAD_CLOSURE' or ref[1] != nmvar: # and i >= current_co.co_argcount:
+            if isvoid or (len(ref) != 2 or ref[0] != 'LOAD_CLOSURE' or ref[1] != nmvar): 
                 o.CLEAR('GETFREEVAR(' + nmvar + ')')
 
         PopClearAll(o)
         if calc_ref_total:
             o.Raw('if ((_Py_RefTotal - l_Py_RefTotal) > 0) {printf ("func ', current_co.co_name, ' delta ref = %d\\n", (int)(_Py_RefTotal - l_Py_RefTotal));}')
         if stat_func == func:
-            o += '{'
+            o.Raw('{')
             o.Raw('FILE * _refs = fopen(\"%s_end\", \"w+\");' % func)
             o.Raw('_Py_PrintReferences2(_refs);')  
             o.Raw('fclose(_refs);')     
-            o += '}'    
+            o.Raw('}')    
         if not is_direct_current:
-            o += 'if (tstate->frame->f_exc_type != NULL) {'
+            o.Raw('if (tstate->frame->f_exc_type != NULL) {')
             o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
-            o += '}'
-            o += 'tstate->frame = f->f_back;'
-        o.Stmt('return', ref)   
+            o.Raw('}')
+            o.Raw('tstate->frame = f->f_back;')
+        if isvoid:
+            o.Raw('return 0;')
+        else:        
+            o.Stmt('return', ref)   
         return
 
     if head == 'CALL_PROC':
@@ -10216,12 +10279,12 @@ def generate_statement(head,it, o):
                 ref1 = New()
                 o.Raw(ref1, ' = PyObject_GetAttr( ', ref, ', ', ('CONST', it[3][1][i]), ');')
                 o.Raw('if (', ref1, ' == NULL) {')
-                o += 'if (PyErr_ExceptionMatches(PyExc_AttributeError)) {'
+                o.Raw('if (PyErr_ExceptionMatches(PyExc_AttributeError)) {')
                 o.Raw('PyErr_Format(PyExc_ImportError, ', ('"cannot import name %s"' % it[3][1][i]), ');')
-                o += '}'
+                o.Raw('}')
                 o.Raw('goto ', labl, ';')
                 UseLabl()
-                o += '}'
+                o.Raw('}')
                 generate_store(it[4][i], ref1,o, it)
             o.Cls(ref)
             return
@@ -10286,7 +10349,7 @@ def generate_statement(head,it, o):
             else:        
                 o.Stmt('if (', ind1, '< 0) {')
                 o.Stmt(ind1, '=', ind1, '+', ind2)
-                o += '}'                        
+                o.Raw('}')                        
             o.Stmt(ind2, '=', ind1, '+', 1)
             o.Stmt('PyList_SetSlice', ref1, ind1, ind2, 'NULL')
             o.Cls(ref1, ind1, ind2)
@@ -10351,7 +10414,7 @@ def generate_statement(head,it, o):
                 o.Comment((')(FINALLY',))
                 o.Stmt('{')
                 generate_list(try_jump_context[-1],o)
-                o += '}'                    
+                o.Raw('}')                    
 ##            o.Stmt('PyFrame_BlockPop', 'f')
         o.Stmt('continue;')
         return
@@ -10361,7 +10424,7 @@ def generate_statement(head,it, o):
                 o.Comment((')(FINALLY',))
                 o.Stmt('{')
                 generate_list(try_jump_context[-1],o)
-                o += '}'                    
+                o.Raw('}')                    
 ##            o.Stmt('PyFrame_BlockPop', 'f')
         o.Stmt('break;')
         return
@@ -10370,7 +10433,7 @@ def generate_statement(head,it, o):
         plain = False
         if r2 == ('CONST', None) == r3:
             r2 = 'glob'
-            o += 'PyFrame_FastToLocals(f);'
+            o.Raw('PyFrame_FastToLocals(f);')
             r3 = 'f->f_locals'
             plain = True
         if r2 != ('CONST', None) and ('CONST', None) == r3:
@@ -10380,7 +10443,7 @@ def generate_statement(head,it, o):
         ## o.INCREF(r3)    
         o.Stmt('_PyEval_ExecStatement', 'f', r1,r2,r3)
         if plain:
-            o += 'PyFrame_LocalsToFast(f, 0);'
+            o.Raw('PyFrame_LocalsToFast(f, 0);')
         ## o.DECREF(r1)    
         ## o.DECREF(r2)    
         ## o.DECREF(r3)    
@@ -10479,13 +10542,13 @@ def _generate_may_be_append_const(ref_list, v1, o, islist = False):
         o.Stmt('if (PyList_CheckExact(', ref_list, ')) {')
     o.Stmt('PyList_Append', ref_list, ('CONST', v1))
     if not islist:
-        o += '} else {'
+        o.Raw('} else {')
         ref_attr = New()
         o.Stmt(ref_attr, '=', 'PyObject_GetAttr', ref_list, ('CONST', 'append'))    
         ref_return = New()
         o.Stmt(ref_return, '=', 'FirstCFunctionCall', ref_attr, ('CONST', (v1,)), ('NULL',))
         o.Cls(ref_return, ref_attr)
-        o += '}'
+        o.Raw('}')
 
 
 def _generate_may_be_append(ref_list, ref_value, o, islist = False):
@@ -10493,7 +10556,7 @@ def _generate_may_be_append(ref_list, ref_value, o, islist = False):
         o.Stmt('if (PyList_CheckExact(', ref_list, ')) {')
     o.Stmt('PyList_Append', ref_list, ref_value)
     if not islist:
-        o += '} else {'
+        o.Raw('} else {')
         ref_attr = New()
         o.Stmt(ref_attr, '=', 'PyObject_GetAttr', ref_list, ('CONST', 'append'))    
         ref_tuple = New()
@@ -10503,7 +10566,7 @@ def _generate_may_be_append(ref_list, ref_value, o, islist = False):
         ref_return = New()
         o.Stmt(ref_return, '=', 'FirstCFunctionCall', ref_attr, ref_tuple, ('NULL',))
         o.Cls(ref_return, ref_tuple, ref_attr)
-        o += '}'
+        o.Raw('}')
  
 def _detect_r_subexpr(e, acc2):
     if not (type(e) is tuple) or len(e) == 0 or \
@@ -10653,7 +10716,7 @@ def generate_mixed_float_expr(it,acc,o,isfloat):
     ref = New()
     o.Stmt(ref, '=', 'PyFloat_FromDouble', float_seq)
     o.Cls(*floats)
-    o += '} else {'
+    o.Raw('} else {')
 ##    o.Raw('/* ((( ' + repr((acc_subfloat+acc, refs_subfloat+refs)) + '*/' )
     PushAcc(acc_subfloat+acc, refs_subfloat+refs)
 ##    o.Raw('/* +++ */')
@@ -10661,7 +10724,7 @@ def generate_mixed_float_expr(it,acc,o,isfloat):
 ##    o.Raw('/* --- */')
     PopAcc(o, False)
 ##    o.Raw('/* ))) */')
-    o += '}'
+    o.Raw('}')
     o.Cls(*refs)
     PushAcc(acc_subfloat, refs_subfloat)
     if it[1] != None:
@@ -10799,7 +10862,7 @@ def generate_with(it,o):
 ##                raised = New('int')
 ##                o.Stmt(raised, '=', 0)
                 o.Stmt('if (0) { ', label_exc, ':')
-                o += 'PyTraceBack_Here(f);'
+                o.Raw('PyTraceBack_Here(f);')
                 
 ##                o.Stmt(raised, '=', 1)
 
@@ -10810,8 +10873,8 @@ def generate_with(it,o):
                 ref2 = Expr1(('!PyObject_Call', r2, ('!BUILD_TUPLE', (ae,be,ce)), 'NULL'),o)
                 o.Cls(ae, be, ce)
                 o.Stmt('PyErr_Restore', a,b,c)
-                o += '}'
-            o += '}'
+                o.Raw('}')
+            o.Raw('}')
             o.Cls(ref2, a, b, c)
             PopAcc(o)     
             PopAcc(o)     
@@ -10895,12 +10958,12 @@ def attempt_iteration_try(it, o):
         o.Cls(ref_list)
     o.Cls(val_iter)
     generate_list(body[1:], o)   
-    o += '} else {'
+    o.Raw('} else {')
     generate_list(handle, o)   
-    o += '}'
-    o += '} else {'
+    o.Raw('}')
+    o.Raw('} else {')
     generate_try(it, o)   
-    o += '}'
+    o.Raw('}')
     return True
 
 def is_attr_next_call(action):
@@ -10985,7 +11048,7 @@ def generate_try(it,o2):
             o.Comment((')(ELSE',))
             o.Stmt('if (', to_else, ') {')
             generate_list(else_cod,o)
-            o += '}'
+            o.Raw('}')
         o.Cls(a, b, c)
 ##      if else_cod != None:
         o.Cls(to_else)
@@ -10995,7 +11058,7 @@ def generate_try(it,o2):
         return None
     global tempgen
     o.Stmt('if (0) { ', label_exc, ':')
-    o += 'PyTraceBack_Here(f);'
+    o.Raw('PyTraceBack_Here(f);')
 ##    to_else = New('int')
 ##    o.Stmt(to_else, '=', 1)
 #    finally_cod = None
@@ -11037,7 +11100,7 @@ def generate_try(it,o2):
                     o.Stmt(to_else, '=', 0)
                     generate_list(it[i+1],o)
                     o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
-                    o += '}'
+                    o.Raw('}')
                     o.Cls(ref1)
                     i += 2
                     continue
@@ -11069,7 +11132,7 @@ def generate_try(it,o2):
                     o.Stmt(to_else, '=', 0)
                     generate_list(it[i+1],o)
                     o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
-                    o += '}'
+                    o.Raw('}')
                     o.Cls(ref1)
                     i += 2
                     continue
@@ -11082,22 +11145,22 @@ def generate_try(it,o2):
         o.Stmt('if (', to_else, ') {')
         o.Stmt('PyFrame_BlockPop', 'f')
 ##        o.Stmt('PyErr_Restore', a,b,c)
-        o += '}'
+        o.Raw('}')
     if not handled and else_cod == None:
         assert not is_direct_current
         o.Stmt('if (', to_else, ') {')
         o.Stmt('goto', labl)
         UseLabl()
-        o += '}'
+        o.Raw('}')
                 
-    o += '}'
+    o.Raw('}')
     if else_cod != None:
         o.Comment((')(ELSE',))
         o.Stmt('if (', to_else, ') {')
         generate_list(else_cod,o)
-        o += '}'
+        o.Raw('}')
         handled = True
-##    o += '}'
+##    o.Raw('}')
     global tempgen
     o.Cls(a, b, c)
     o.Cls(a1, b1, c1)
@@ -11165,10 +11228,10 @@ def generate_try_finally(it,o2):
     raised = New('int')
     o.Stmt(raised, '=', 0)
     o.Stmt('if (0) { ', label_exc, ':')
-    o += 'PyTraceBack_Here(f);'
+    o.Raw('PyTraceBack_Here(f);')
     o.Stmt(raised, '=', 1)
     generate_clear_temp_on_exception(o, traced_temp)
-    o += '}'
+    o.Raw('}')
     if i < len(it):
         Fatal('', it, i, it[i])
     del try_jump_context[-1]        
@@ -11176,8 +11239,8 @@ def generate_try_finally(it,o2):
 #    o.Stmt('if (', to_else, ') {')
 #    o.Stmt('PyFrame_BlockPop', 'f')
 #    o.Stmt('PyErr_Restore', a,b,c)
-#    o += '}'
-#    o += '}'
+#    o.Raw('}')
+#    o.Raw('}')
     o.Comment((')(FINALLY',))
 ## if not handled:
     ## o.Stmt('if (', to_else, ') {')
@@ -11189,13 +11252,13 @@ def generate_try_finally(it,o2):
     ## o.INCREF(b)
     ## o.INCREF(c)
     ## o.Stmt('PyErr_Restore', a,b,c)
-    ## o += '}'
+    ## o.Raw('}')
     ## generate_list(finally_cod,o)
     ## o.Stmt('if (', to_else, ') {')
     ## o.Stmt('PyErr_Restore', a1,b1,c1)
     ## o.Stmt('goto', labl)
     ## UseLabl()
-    ## o += '}'
+    ## o.Raw('}')
 ## else:        
 #    o.Stmt('{')
     generate_list(finally_cod,o)
@@ -11222,7 +11285,7 @@ def get_exc_info(o):
     o.Stmt('if (', be, '== NULL) {')
     o.Raw(be, '= Py_None;')
     o.INCREF(be)
-    o += '}'
+    o.Raw('}')
     o.Stmt('PyErr_NormalizeException', ('&', ae), ('&', be), ('&', ce))
     if is_direct_current:
         o.Stmt('_PyEval_set_exc_info', 'f->f_tstate', ae, be, ce)       
@@ -11231,7 +11294,7 @@ def get_exc_info(o):
     o.Stmt('if (', ce, '== NULL) {')
     o.Raw(ce, '= Py_None;')
     o.INCREF(ce)
-    o += '}'
+    o.Raw('}')
     return ae, be, ce
 
 def set_toerr_new(o, label_err):
@@ -11417,7 +11480,9 @@ def generate_ssize_t_expr(it):
 
 type_to_check = {'tuple' : 'PyTuple_CheckExact', 'list' : 'PyList_CheckExact',
                  'dict' : 'PyDict_CheckExact', 'int' : 'PyInt_CheckExact',
-                 'str' : 'PyString_CheckExact', 'long' : 'PyLong_CheckExact'}                  
+                 'str' : 'PyString_CheckExact', 'long' : 'PyLong_CheckExact',
+                 'float' : 'PyFloat_CheckExact', 'complex' : 'PyComplex_CheckExact',
+                 'unicode' : 'PyUnicode_CheckExact', 'bool' : 'PyBool_Check'}                  
 
 def generate_logical_expr(it, logic = None):
     it0 = it[0]
@@ -11425,6 +11490,7 @@ def generate_logical_expr(it, logic = None):
         it0 = it0[:-1]
     if logic == None:    
         logic = New('int')
+    o = Out()    
     if it0 == '!PyObject_RichCompare':
         v = []
         built, valu, op = None, None, None
@@ -11434,7 +11500,6 @@ def generate_logical_expr(it, logic = None):
         if TCmp(it, v, ('!PyObject_RichCompare(', ('!PyObject_Type', '?'), ('!LOAD_BUILTIN', '?'), '?')): 
             valu, built, op = v           
         if built in type_to_check and op in ('PyCmp_EQ', 'PyCmp_NE'):
-            o = Out()
             ref1 = Expr1(valu, o)
             if op == 'PyCmp_EQ':
                 o.Raw(logic, ' = ', type_to_check[built], '(', ref1, ');')
@@ -11442,49 +11507,58 @@ def generate_logical_expr(it, logic = None):
                 o.Raw(logic, ' = !', type_to_check[built], '(', ref1, ');')
             o.Cls(ref1)
             return o, logic
-            
-        o = Out()
+        calcclass, valu, op = None, None, None
+        if TCmp(it, v, ('!PyObject_RichCompare(', ('CALC_CONST', '?'),  \
+                           ('!PyObject_Type', '?'), '?')): 
+            calcclass, valu, op = v           
+        if TCmp(it, v, ('!PyObject_RichCompare(', ('!PyObject_Type', '?'), ('CALC_CONST', '?'), '?')): 
+            valu, calcclass, op = v           
+        if op in ('PyCmp_EQ', 'PyCmp_NE') and IsAnyClass(calcclass):
+            ref1 = Expr1(valu, o)
+            if op == 'PyCmp_EQ':
+                o.Raw(logic, ' = ((PyObject *)(((PyObject*)(',ref1,\
+                      '))->ob_type)) == ', ('CALC_CONST', calcclass), ';')
+            else:
+                o.Raw(logic, ' = ((PyObject *)(((PyObject*)(',ref1,\
+                      '))->ob_type)) != ', ('CALC_CONST', calcclass), ';')
+            o.Cls(ref1)
+            return o, logic
+
         ref1, ref2 = Expr(o, it[1:3])
         o.Stmt(logic, '=', 'PyObject_RichCompareBool', ref1, ref2, it[3])
         o.Cls(ref1, ref2)
         return o, logic
     if it0 == '!BOOLEAN':
-        return generate_logical_expr(it[1], logic)
+        return generate_logical_expr(it[1], logic) 
     if it0 == 'CONST':
         if it[1]:
-            o = Out()
             o.Stmt(logic, '=', 1)
             return o, logic
         if not it[1]:
-            o = Out()
             o.Stmt(logic, '=', 0)
             return o, logic
         Fatal('shd', it)
     if it0 == '!1NOT':
         if it[1] == ('CONST', False):
-            o = Out()
             o.Stmt(logic, '=', 1)
             return o, logic
         if it[1] == ('CONST', True):
-            o = Out()
             o.Stmt(logic, '=', 0)
             return o, logic
         if it[1][0] in IsObject:
-            o = Out()
             ref1 = Expr1(it[1], o)
             o.Stmt(logic, '=', 'PyObject_Not', ref1)
             o.Cls(ref1)
             return o, logic
         o,logic = generate_logical_expr(it[1], logic)
         if istemptyped(logic):
-            o.Stmt(logic, '=', '!', logic)
+            o.Raw(logic, ' = !(', logic,');')
             return o, logic
         else:    
             logic2 = New('int')
-            o.Stmt(logic2, '=', '!', logic)
+            o.Raw(logic2, ' = !(', logic,');')
             return o, logic2
     if it0 in API_cmp_2_PyObject:
-        o = Out()
         ref1, ref2 = Expr(o, it[1:3])
         o.Stmt(logic, '=', it0[1:], ref1, ref2)
         o.Cls(ref1, ref2)
@@ -11492,7 +11566,6 @@ def generate_logical_expr(it, logic = None):
 
     if it0 in ('!_EQ_', '!_NEQ_'):
         if it[1][0] == '!PyObject_Type' and it[2][0] == '!LOAD_BUILTIN' and it[2][1] in type_to_check:
-            o = Out()
             ref1 = Expr1(it[1][1], o)
             if it0 == '!_EQ_':
                 o.Raw(logic, ' = ', type_to_check[it[2][1]], '(', ref1, ');')
@@ -11501,7 +11574,6 @@ def generate_logical_expr(it, logic = None):
             o.Cls(ref1)
             return o, logic
         if it[2][0] == '!PyObject_Type' and it[1][0] == '!LOAD_BUILTIN' and it[1][1] in type_to_check:
-            o = Out()
             ref1 = Expr1(it[2][1], o)
             if it0 == '!_EQ_':
                 o.Raw(logic, ' = ', type_to_check[it[1][1]], '(', ref1, ');')
@@ -11509,7 +11581,23 @@ def generate_logical_expr(it, logic = None):
                 o.Raw(logic, ' = !', type_to_check[it[1][1]], '(', ref1, ');')
             o.Cls(ref1)
             return o, logic
-        o = Out()
+        if it[1][0] == '!PyObject_Type' and it[2][0] == 'CALC_CONST' and IsAnyClass(it[2][1]):
+            ref1 = Expr1(it[1][1], o)
+            if it0 == '!_EQ_':
+                o.Raw(logic, ' =  ((PyObject *)(((PyObject*)(',ref1,'))->ob_type)) == ', it[2], ';')
+            else:
+                o.Raw(logic, ' = ((PyObject *)(((PyObject*)(',ref1,'))->ob_type)) != ', it[2], ';')
+            o.Cls(ref1)
+            return o, logic
+        if it[2][0] == '!PyObject_Type' and it[1][0] == 'CALC_CONST' and IsAnyClass(it[1][1]):
+            ref1 = Expr1(it[2][1], o)
+            if it0 == '!_EQ_':
+                o.Raw(logic, ' = ((PyObject *)(((PyObject*)(',ref1,'))->ob_type)) == ', it[1], ';')
+            else:
+                o.Raw(logic, ' = ((PyObject *)(((PyObject*)(',ref1,'))->ob_type)) != ', it[1], ';')
+            o.Cls(ref1)
+            return o, logic
+
         ref1, ref2 = Expr(o, it[1:])        
         if it0 == '!_EQ_':
             o.Stmt(logic, '=', ref1, '==', ref2)
@@ -11538,7 +11626,6 @@ def generate_logical_expr(it, logic = None):
         return o1,logic
     if it0 in ('!c_PyCmp_EQ_Int', '!c_PyCmp_NE_Int', '!c_PyCmp_LT_Int', \
                '!c_PyCmp_LE_Int', '!c_PyCmp_GT_Int', '!c_PyCmp_GE_Int'):
-        o = Out()
         ref = Expr1(it[1], o)
         int_2 = 'NULL'
         t = TypeExpr(it[1])
@@ -11607,13 +11694,11 @@ def generate_logical_expr(it, logic = None):
                 o.Cls(ref, int_t)
                 return o,logic
 
-
         o.Stmt(logic,'=', it0[1:], ref, int_t, int_2)
         o.Cls(ref, int_t)
         return o,logic
 
     if it0 in ('!c_PyCmp_EQ_String', '!c_PyCmp_NE_String'):
-        o = Out()
         ref = Expr1(it[1], o)
         if type(it[2]) == str:
             s_t = it[2] 
@@ -11626,7 +11711,6 @@ def generate_logical_expr(it, logic = None):
         o.Stmt(logic,'=', it0[1:], ref, len(s_t), s_2)
         o.Cls(ref)
         return o,logic
-    o = Out()
     ref1 = Expr1(it, o)
     return ToTrue(o,logic,ref1, it)
  
@@ -11684,7 +11768,7 @@ def generate_and_or_logical(it, is_and, logic):
         o.Stmt('if (!(', logic1, ')) {')
     o2 = generate_and_or_logical(it[1:], is_and, logic1)
     o.extend(o2)
-    o += '}'
+    o.Raw('}')
     return o  
 
 def generate_preexpr(it,o):
@@ -11700,6 +11784,33 @@ def generate_preexpr(it,o):
     ## for x in refs:
         ## o.Cls(x)            
 
+def shortage_l(l):
+    o, logic = l
+    if len(o) == 0:
+        return o, logic
+    if not istemptyped(logic):
+        return o, logic
+    if len(o) == 1 and o[0].startswith(ConC(logic, ' = ')) and\
+       o[0].endswith(';'):
+       s = o[0].split(' = ')
+       if len(s) != 2:
+            return o, logic
+       if s[0] != ConC(logic):
+            return o, logic
+       o2 = Out()
+       return o2, s[1][:-1] 
+    if len(o) > 1 and o[-1].startswith(ConC(logic, ' = ')) and\
+       o[-1].endswith(';'):
+       s = o[-1].split(' = ')
+       if len(s) != 2:
+            return o, logic
+       if s[0] != ConC(logic):
+            return o, logic
+       o2 = Out()
+       o2.extend(o[:-1])
+       return o2, s[1][:-1] 
+    return o, logic
+    
 def generate_if(it,o):
     if it[0][1][0] == '!1NOT' and len(it) > 3:
        if_ = list(it[0])
@@ -11715,18 +11826,18 @@ def generate_if(it,o):
         generate_list(it[3], o)
         return
 
-    o1, logic = generate_logical_expr(it[0][1])
+    o1, logic = shortage_l(generate_logical_expr(it[0][1]))
     o.extend(o1)
     o.Stmt('if (', logic, ') {')
     o.Cls(logic)
     generate_list(it[1], o)
     if len(it) == 3:
-        o += '}'
+        o.Raw('}')
         return
     assert it[2][0] == ')(ELSE'
-    o += '} else {'
+    o.Raw('} else {')
     generate_list(it[3], o)
-    o += '}'
+    o.Raw('}')
     assert it[4][0] == ')ENDIF'
 
 def generate_while(it,o):
@@ -11738,21 +11849,22 @@ def generate_while(it,o):
     try_jump_context.append(False)    
     dropped_temp.append(('WHILE', ()))
     o.Stmt('for (;;) {')
-    o1, logic = generate_logical_expr(it[0][1])
+    o1, logic = shortage_l(generate_logical_expr(it[0][1]))
     o.extend(o1)
-    o.Stmt('if (!(', logic, ')) break')
+    if logic != '1':
+        o.Stmt('if (!(', logic, ')) break')
     o.Cls(logic)
     if have_else:
         o.Stmt(else_cond, '=', 0)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     if have_else:
         o.Stmt ('if (', else_cond,') {')
         o.Cls(else_cond)
         generate_list(it[3], o)
-        o += '}'
+        o.Raw('}')
         assert len(it) == 5
         return
     assert len(it) == 3
@@ -11781,13 +11893,13 @@ def generate_for_and_else_new(it,o):
     o.Cls(ref)
     o.Raw(to_else, ' = 0;')
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter2) 
     o.Stmt('if (', to_else, ') {')
     generate_list(it[3], o)
-    o += '}'
+    o.Raw('}')
     o.Cls(to_else)
 
     assert len(it) in (3,5)
@@ -11814,7 +11926,7 @@ def generate_for_range_one_arg(it, o, range_arg):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyInt_FromSsize_t')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(pos_iter, cnt) 
@@ -11850,7 +11962,7 @@ def generate_for_list_new(it,o):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyList_GET_ITEM')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, pos_iter) 
@@ -11891,7 +12003,7 @@ def generate_for_universal_new(it,o):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyIter_Next')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, riter2, pos_iter) 
@@ -11915,7 +12027,7 @@ def generate_for_tuple_new(it,o):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyTuple_GET_ITEM')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, pos_iter) 
@@ -11957,7 +12069,7 @@ def generate_for_enumerate_new(it,o, store1, store2, iter):
     o.Cls(ref)
     o.Raw(pos_iter, '++;')
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, riter2, pos_iter) 
@@ -11982,7 +12094,7 @@ def generate_for_enumerate_list_new(it,o, store1, store2, iter):
     generate_store(it[0][1][1], ref, o, 'PyList_GET_ITEM')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, pos_iter) 
@@ -12007,7 +12119,7 @@ def generate_for_enumerate_tuple_new(it,o, store1, store2, iter):
     generate_store(it[0][1][1], ref, o, 'PyTuple_GET_ITEM')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter, pos_iter) 
@@ -12042,7 +12154,7 @@ def generate_for_iteritems_generator_standard(it,o):
 
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter)
@@ -12066,7 +12178,7 @@ def generate_for_iteritems_generator_new(it,o, v):
     o.Cls(k,v)
 
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(d,pos) 
@@ -12089,7 +12201,7 @@ def generate_for_iterkeys_generator_new(it,o, v):
     o.Cls(k,v)
 
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(d,pos) 
@@ -12112,7 +12224,7 @@ def generate_for_itervalues_generator_new(it,o, v):
     o.Cls(k,v)
 
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(d,pos) 
@@ -12193,7 +12305,7 @@ def generate_for_generator_new(it,o):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyIter_Next')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter) 
@@ -12235,7 +12347,7 @@ def generate_for_xrange_new(it,o):
         generate_store(('SET_VARS', it[0][1]), ref, o, 'PyIter_Next')
     o.Cls(ref)
     generate_list(it[1], o)
-    o += '}'
+    o.Raw('}')
     del try_jump_context[-1]
     del dropped_temp[-1]
     o.Cls(riter2) 
@@ -12357,7 +12469,7 @@ def TCmp(e,v,p, trace = None):
               
         del v[:]
         return False
-    if type(p) is types.TypeType:
+    if type(p) is type:
         if type(e) is p:
             v.append(e)
             if trace != None: print 'Cmp success ', e,v,p
@@ -13042,7 +13154,7 @@ def repl(ret):
         if r0 == '!PyObject_Repr':
             if IsInt(TypeExpr(ret[1])):
                 return ('!_PyInt_Format', ret[1], 10, 0)            
-        if len(ret) == 2 and r0 == 'CONST' and type(ret[1]) == types.TypeType:
+        if len(ret) == 2 and r0 == 'CONST' and type(ret[1]) == type:
             if ret[1] in d_built_inv:
                 ret = ('!LOAD_BUILTIN', d_built_inv[ret[1]])
             else:
@@ -13137,111 +13249,108 @@ def repl(ret):
                     ('!PyObject_Call',  
                         ('!PyObject_GetAttr', '?', ('CONST', '?')), ('!BUILD_TUPLE', '?'), ('NULL',))):
                     t = TypeExpr(v[0])
-                    if t != None and t.is_old_class_inst() and \
-                            Is3(t.subdescr, 'CalcConstOldClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            Debug('No direct call of class method', ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:                        
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                    elif t != None and t.is_old_class_typ() and \
-                            Is3(t.subdescr, 'CalcConstOldClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:                        
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-    
-                    elif t != None and t.is_new_class_inst() and \
-                            Is3(t.subdescr, 'CalcConstNewClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            Debug('No direct call of class method', ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:                        
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                    elif t != None and t.is_new_class_typ() and \
-                            Is3(t.subdescr, 'CalcConstNewClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:                        
-                            tupl = ('!BUILD_TUPLE', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
+                    if t != None:
+                        classmeth = Is3(t.subdescr, ('ClassMethod', v[1]))
+                        staticmeth = Is3(t.subdescr, ('StaticMethod', v[1]))
+                        ismeth = Is3(t.subdescr, ('Method', v[1]))
+                        codemethnm = Val3(t.subdescr, ('Method', v[1]))
+                        isoldclass = Is3(t.subdescr, 'CalcConstOldClass')
+                        isnewclass = Is3(t.subdescr, 'CalcConstNewClass')
+                        if t.is_old_class_inst() and isoldclass and ismeth:
+                            if classmeth:
+                                Debug('No direct call of class method', ret)
+                            elif staticmeth:
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:                        
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                        elif t.is_old_class_typ() and isoldclass and ismeth:
+                            if classmeth:
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            elif staticmeth:
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:                        
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+        
+                        elif t.is_new_class_inst() and isnewclass and ismeth:
+                            if classmeth:
+                                Debug('No direct call of class method', ret)
+                            elif staticmeth:
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:                        
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                        elif t.is_new_class_typ() and isnewclass and ismeth:
+                            if classmeth:
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            elif staticmeth:
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:                        
+                                tupl = ('!BUILD_TUPLE', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
     
                 if TCmp(ret, v, \
                     ('!PyObject_Call',  
                         ('!PyObject_GetAttr', '?', ('CONST', '?')), ('CONST', '?'), ('NULL',))):
                     t = TypeExpr(v[0])
-                    if t != None and t.is_old_class_inst() and \
-                            Is3(t.subdescr, 'CalcConstOldClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            Debug('No direct call of class method', ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('CONST', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:    
-                            v2 = tuple([('CONST', x) for x in v[2]])
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v2)
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-    
-                    elif t != None and t.is_old_class_typ() and \
-                            Is3(t.subdescr, 'CalcConstOldClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            Debug('No direct call of class method', ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('CONST', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:    
-                            v2 = tuple([('CONST', x) for x in v[2]])
-                            tupl = ('CONST', v2)
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                    
-                    elif t != None and t.is_new_class_inst() and \
-                            Is3(t.subdescr, 'CalcConstNewClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            Debug('No direct call of class method', ret)
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('CONST', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:    
-                            v2 = tuple([('CONST', x) for x in v[2]])
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v2)
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-    
-                    elif t != None and t.is_new_class_typ() and \
-                            Is3(t.subdescr, 'CalcConstNewClass') and\
-                            Is3(t.subdescr, ('Method', v[1])):
-                        if Is3(t.subdescr, ('ClassMethod', v[1])):
-                            tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                            
-                        elif Is3(t.subdescr, ('StaticMethod', v[1])):
-                            tupl = ('CONST', v[2])
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
-                        else:    
-                            v2 = tuple([('CONST', x) for x in v[2]])
-                            tupl = ('CONST', v2)
-                            return call_calc_const(Val3(t.subdescr, ('Method', v[1])), tupl, ret)
+                    if t != None:
+                        classmeth = Is3(t.subdescr, ('ClassMethod', v[1]))
+                        staticmeth = Is3(t.subdescr, ('StaticMethod', v[1]))
+                        ismeth = Is3(t.subdescr, ('Method', v[1]))
+                        codemethnm = Val3(t.subdescr, ('Method', v[1]))
+                        isoldclass = Is3(t.subdescr, 'CalcConstOldClass')
+                        isnewclass = Is3(t.subdescr, 'CalcConstNewClass')                    
+                        if t.is_old_class_inst() and isoldclass and ismeth:
+                            if classmeth:
+                                Debug('No direct call of class method', ret)
+                            elif staticmeth:
+                                tupl = ('CONST', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:    
+                                v2 = tuple([('CONST', x) for x in v[2]])
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v2)
+                                return call_calc_const(codemethnm, tupl, ret)
+        
+                        elif t.is_old_class_typ() and isoldclass and ismeth:
+                            if classmeth:
+                                Debug('No direct call of class method', ret)
+                            elif staticmeth:
+                                tupl = ('CONST', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:    
+                                v2 = tuple([('CONST', x) for x in v[2]])
+                                tupl = ('CONST', v2)
+                                return call_calc_const(codemethnm, tupl, ret)
+                        
+                        elif t.is_new_class_inst() and isnewclass and ismeth:
+                            if classmeth:
+                                Debug('No direct call of class method', ret)
+                            elif staticmeth:
+                                tupl = ('CONST', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:    
+                                v2 = tuple([('CONST', x) for x in v[2]])
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v2)
+                                return call_calc_const(codemethnm, tupl, ret)
+        
+                        elif t.is_new_class_typ() and isnewclass and ismeth:
+                            if classmeth:
+                                tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
+                                return call_calc_const(codemethnm, tupl, ret) 
+                            elif staticmeth:
+                                tupl = ('CONST', v[2])
+                                return call_calc_const(codemethnm, tupl, ret)
+                            else:    
+                                v2 = tuple([('CONST', x) for x in v[2]])
+                                tupl = ('CONST', v2)
+                                return call_calc_const(codemethnm, tupl, ret)
                         
             _v = []
             v = []
@@ -13878,7 +13987,7 @@ def TypeExpr(ret):
         if t != None and (t, ret[2][1]) in methods_type:
             return Klass(types.MethodType)
         if t != None:
-            if (Is3(t.subdescr, 'CalcConstOldClass') or Is3(t.subdescr, 'CalcConstNewClass')):
+            if IsAnyClass(t.subdescr):
                 pass
             elif t.descr == types.ModuleType:
                 tupl = (t.subdescr, ret[2][1], 'val')
@@ -13989,7 +14098,7 @@ def TypeExpr(ret):
             if t != None and (t, _v[1]) in methods_type:
                 return methods_type[(t, _v[1])]
             elif t != None:
-                if (Is3(t.subdescr, 'CalcConstOldClass') or Is3(t.subdescr, 'CalcConstNewClass')):
+                if IsAnyClass(t.subdescr):
                     pass
                 elif t.descr == types.ModuleType:
                     tupl = (t.subdescr, _v[1], '()')
@@ -14255,7 +14364,7 @@ def collect_module_type_attr(nm, acc = []):
             if t2 != None:
                 t = t2
         else:
-            if type(t) != types.TypeType:
+            if type(t) != type:
                 t = Klass(T_NEW_CL_INST, v.__class__.__name__)
             else:    
                 t = Klass(t)    
@@ -14444,18 +14553,18 @@ def generate_list_compr_enumerate(acc, val, store_ind, store_val, enumerated, co
     o.Cls(ref_int)
     o.Stmt(n_iter, '++')
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
     ref_val = Expr1(val[0], o)
     o.Stmt('PyList_Append', acc, ref_val)
     o.Cls(ref_val)
     if cond != None:
-        o += '}'
+        o.Raw('}')
 #    o.Cls(ref_val)
 #    if cond != None:
         o.Cls(cond_var)
-    o += '}'
+    o.Raw('}')
     o.Cls(ref_iter, n_iter, ref_expr)
     return acc    
 
@@ -14474,18 +14583,18 @@ def generate_list_compr_iteritems(acc, val, store_1, store_2, dic, cond, o):
     o.Cls(k,v)
  
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
     ref_val = Expr1(val[0], o)
     o.Stmt('PyList_Append', acc, ref_val)
     o.Cls(ref_val)
     if cond != None:
-        o += '}'
+        o.Raw('}')
 #    o.Cls(ref_val)
 #    if cond != None:
         o.Cls(cond_var)
-    o += '}'
+    o.Raw('}')
     o.Cls(pos, ref_expr)
     return acc    
 
@@ -14503,18 +14612,18 @@ def generate_list_compr_iterkeys(acc, val, store, dic, cond, o):
     o.Cls(k,v)
  
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
     ref_val = Expr1(val[0], o)
     o.Stmt('PyList_Append', acc, ref_val)
     o.Cls(ref_val)
     if cond != None:
-        o += '}'
+        o.Raw('}')
 #    o.Cls(ref_val)
 #    if cond != None:
         o.Cls(cond_var)
-    o += '}'
+    o.Raw('}')
     o.Cls(pos, ref_expr)
     return acc    
 
@@ -14532,18 +14641,18 @@ def generate_list_compr_itervalues(acc, val, store, dic, cond, o):
     o.Cls(k,v)
  
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
     ref_val = Expr1(val[0], o)
     o.Stmt('PyList_Append', acc, ref_val)
     o.Cls(ref_val)
     if cond != None:
-        o += '}'
+        o.Raw('}')
 #    o.Cls(ref_val)
 #    if cond != None:
         o.Cls(cond_var)
-    o += '}'
+    o.Raw('}')
     o.Cls(pos, ref_expr)
     return acc  
 
@@ -14611,7 +14720,7 @@ def recursive_gen_list_compr(acc, val, store,expr, cond,tail, o):
     o.ZeroTemp(ref_temp)  
 
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
         o.Cls(cond_var)
@@ -14623,8 +14732,8 @@ def recursive_gen_list_compr(acc, val, store,expr, cond,tail, o):
         store1,expr1, cond1 = tail[0:3]
         recursive_gen_list_compr(acc, val, store1,expr1, cond1, tail[3:], o)
     if cond != None:
-        o += '}'
-    o += '}'
+        o.Raw('}')
+    o.Raw('}')
     o.Cls(ref_iter)
     return acc
 
@@ -14659,7 +14768,7 @@ def recursive_gen_set_compr(acc, val, store,expr, cond,tail, o):
     o.ZeroTemp(ref_temp)  
 
     if cond != None:
-        o1, cond_var = generate_logical_expr(cond[0])
+        o1, cond_var = shortage_l(generate_logical_expr(cond[0]))
         o.extend(o1)
         o.Stmt('if (', cond_var, '){')
         o.Cls(cond_var)
@@ -14671,8 +14780,8 @@ def recursive_gen_set_compr(acc, val, store,expr, cond,tail, o):
         store1,expr1, cond1 = tail[0:3]
         recursive_gen_set_compr(acc, val, store1,expr1, cond1, tail[3:], o)
     if cond != None:
-        o += '}'
-    o += '}'
+        o.Raw('}')
+    o.Raw('}')
     o.Cls(ref_iter)
     return acc
 
@@ -14735,57 +14844,7 @@ def generate_store(it, ref, o, expr):
         o.Cls(ref)
         return
     if it[0] == 'PyObject_SetAttr':
-##        ref1 = None
-##        ref = None        
-        t = TypeExpr(it[1])
-        if t != None and t.descr == T_OLD_CL_INST:
-            if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__':
-                ref1 = Expr1(it[1], o)
-                o.Stmt('PyDict_SetItem', '((PyInstanceObject *)' + CVar(ref1) + ')->in_dict', it[2], ref)
-                o.Cls(ref1, ref)
-                return
-        _ddic = all_co[current_co]    
-        ## if t != None and t.descr == T_NEW_CL_INST:
-            ## if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-               ## it[2][1][0:2] != '__':
-                ## ref1 = Expr1(it[1], o)
-                ## o.Stmt('PyObject_GenericSetAttr', ref1, it[2], ref)
-                ## o.Cls(ref1, ref)
-                ## return
-        if not redefined_attribute and it[1] == ('FAST', 'self')\
-             and it[2][0] == 'CONST' and \
-             Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
-               it[2][1][0:2] != '__': 
-            if _ddic.method_new_class and current_co.co_name != '__init__': 
-                o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                _ddic.self_dict_getattr_used = True
-                o.Cls(ref)
-                return
-            elif _ddic.method_old_class and current_co.co_name != '__init__': 
-                o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                _ddic.self_dict_getattr_used = True
-                o.Cls(ref)
-                return
-            elif _ddic.method_new_class and current_co.co_name == '__init__': 
-                if _ddic.self_dict_setattr_used:
-                    o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                    _ddic.self_dict_getattr_used = True
-                    o.Cls(ref)
-                    return
-                else:
-                    _ddic.self_dict_setattr_used = True
-            elif _ddic.method_old_class and current_co.co_name == '__init__': 
-                if _ddic.self_dict_setattr_used:
-                    o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                    _ddic.self_dict_getattr_used = True
-                    o.Cls(ref)
-                    return
-                else:
-                    _ddic.self_dict_setattr_used = True
-        ref1, ref2 = Expr(o, it[1:])
-        o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
-        o.Cls(ref, ref1, ref2)
+        generate_SetAttr(it, ref, o, expr)
         return
     if it[0] == '?PyObject_SetAttr':
         ref1, ref2 = Expr(o, it[1:3])
@@ -14795,12 +14854,12 @@ def generate_store(it, ref, o, expr):
         o.Stmt('if (', proc, '==', load_builtin(it[2][1]), ') {')
         o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
         o.Cls(ref, ref1, ref2)
-        o += '} else {'
+        o.Raw('} else {')
         ref4 = New()
         tupl = Expr1(('!BUILD_TUPLE', (ref1, ref2, ref)), o)
         o.Stmt(ref4, '=', 'PyObject_Call', proc, tupl, ('NULL',))
         o.Cls(tupl, ref4)
-        o += '}'
+        o.Raw('}')
         o.Cls(proc)
         return
 # Code crash unknown -- no crash currently   
@@ -14814,13 +14873,13 @@ def generate_store(it, ref, o, expr):
             o.INCREF(ref)
         o.Stmt('PyList_SetItem', ref1, it[2][1], ref)
         if not islist:
-            o += '} else {'
+            o.Raw('} else {')
             ref2 = Expr1(it[2][2],o)
             o.Stmt('PyObject_SetItem', ref1, ref2, ref)
             o.Cls(ref2)
             if istempref(ref):
                 o.CLEAR(ref)
-            o += '}'
+            o.Raw('}')
         o.Cls(ref1)
         return
     if it[0] == 'PyObject_SetItem' and it[2][0] == 'CONST' and type(it[2][1]) is int:
@@ -14849,11 +14908,11 @@ def generate_store(it, ref, o, expr):
                 if not istempref(ref):
                     o.INCREF(ref)
                 o.Stmt('PyList_SetItem', ref1, it[2][1], ref)
-                o += '} else {'
+                o.Raw('} else {')
                 o.Stmt('PyObject_SetItem', ref1, it[2], ref)
                 if istempref(ref):
                     o.CLEAR(ref)
-                o += '}'
+                o.Raw('}')
             else:    
                 o.Stmt('PyObject_SetItem', ref1, it[2], ref)
         o.Cls(ref1)
@@ -14883,7 +14942,7 @@ def generate_store(it, ref, o, expr):
             else:    
                 o.Stmt('if (', ind, '< 0) {')
                 o.Stmt(ind, '=', ind, '+', 'PyList_GET_SIZE(' + CVar(ref1) + ')')
-                o += '}'
+                o.Raw('}')
             o.Stmt('PyList_SetItem', ref1, ind, ref)
             o.ClsFict(ref)
             o.Cls(ind, ref, ref1)
@@ -14897,12 +14956,12 @@ def generate_store(it, ref, o, expr):
             o.Raw(ind, ' = PyInt_AS_LONG(', refind,');')
             o.Stmt('if (', ind, '< 0) {')
             o.Stmt(ind, '=', ind, '+', 'PyList_GET_SIZE(' + CVar(ref1) + ')')
-            o += '}'
+            o.Raw('}')
             o.Stmt('PyList_SetItem', ref1, ind, ref)
             o.Cls(ind)
-            o += '} else {'
+            o.Raw('} else {')
             o.Stmt('PyObject_SetItem', ref1, refind, ref)
-            o += '}'    
+            o.Raw('}')    
             o.ClsFict(ref)
             o.Cls(ind, ref, ref1, refind)
         else:    
@@ -14992,7 +15051,7 @@ def assign_list_slice(it, o, ref, plus_1 = False):
     else:        
         o.Stmt('if (', ind1, '< 0) {')
         o.Stmt(ind1, '=', ind1, '+', ind2)
-        o += '}'                        
+        o.Raw('}')                        
     if plus_1:    
         o.Stmt(ind2, '=', ind1, '+', 1)
     o.Stmt('PyList_SetSlice', ref1, ind1, ind2, ref)
@@ -15005,24 +15064,24 @@ def isfast(ref):
 
 def handle_unpack_except(o, src_len, trg_len):
     o.Raw('if (', src_len, ' > ', trg_len, ') {')
-    o += 'PyErr_Format(PyExc_ValueError, "too many values to unpack");'
+    o.Raw('PyErr_Format(PyExc_ValueError, "too many values to unpack");')
     o.Raw('goto ', labl, ';')
     UseLabl()
-    o += '}'    
+    o.Raw('}')    
     o.Raw('if (', src_len, ' < ', trg_len, ') {')
     add_s = '%s, %s == 1 ? "" : "s"' % (CVar(src_len), CVar(src_len))
     o.Raw('PyErr_Format(PyExc_ValueError, "need more than %d value%s to unpack", ', add_s, ');')
     o.Raw('goto ', labl, ';')
     UseLabl()
-    o += '}'    
+    o.Raw('}')    
 
     ## o.append('if (' + CVar(ref1) + ' == NULL) {')
     ## o.append('if (PyErr_ExceptionMatches(PyExc_AttributeError)) {')
     ## o.append('PyErr_Format(PyExc_ValueError, ' + ('"cannot import name %s"' % it[3][1][i]) + ');')
-    ## o += '}'
+    ## o.Raw('}')
     ## o.append('goto ' + CVar(labl) + ';')
     ## UseLabl()
-    ## o += '}'    
+    ## o.Raw('}')    
 def mass_store(o,ref,its,expr):
     islist = False
     t = TypeExpr(expr)
@@ -15070,7 +15129,7 @@ def mass_store(o,ref,its,expr):
             o.Stmt(ref1, '=', 'PyTuple_GetItem', ref, i)
             generate_store(iit,ref1,o, ('!PyTuple_GetItem', expr, i))
             o.Cls(ref1)
-        o += '} else {'
+        o.Raw('} else {')
         ref2 = New()
         o.Stmt(ref2, '=', 'PySequence_Tuple', ref)
         o.Stmt(src_len, '=', 'PyTuple_GET_SIZE', ref2)
@@ -15082,7 +15141,7 @@ def mass_store(o,ref,its,expr):
             generate_store(iit,ref1,o, ('!PyTuple_GetItem', expr, i))
             o.Cls(ref1)
         o.Cls(ref2)
-        o += '}'
+        o.Raw('}')
     if istempref(ref):    
         o.Raw('Py_CLEAR(',  ref,');')    
     PopAcc(o)
@@ -15229,59 +15288,82 @@ def generate_SetAttr(it, ref, o, expr):
 def generate_GetAttr(it,o, forcenewg, typed):
     t = TypeExpr(it[1])
     _ddic = all_co[current_co]
-    if t != None and t.descr == T_OLD_CL_INST and not redefined_attribute:
-        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-            it[2][1][0:2] != '__':
-            r = Expr1(it[1], o)
-            ref = New(None, forcenewg)
-            o.Stmt(ref, '=', 'PyDict_GetItem', '((PyInstanceObject *)' + CVar(r) + ')->in_dict', it[2])
-            o.Cls(r)
-            return ref
-    # in not     
-    elif t != None and t.descr == T_NEW_CL_INST and not redefined_attribute:
-        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
-            it[2][1][0:2] != '__':
-            r = Expr1(it[1], o)
-            dic = New()
-            o.Raw(dic, ' = *_PyObject_GetDictPtr(',r,');')
-            o.INCREF(dic)
-            o.Cls(r)
-            ref = New(None, forcenewg)
-            o.Stmt(ref, '=', 'PyDict_GetItem', dic, it[2])
-            o.Cls(dic)
-            return ref
-    elif _ddic.method_new_class and it[1] == ('FAST', 'self')\
-            and not redefined_attribute:
-        if it[2][0] == 'CONST' and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
-            it[2][1][0:2] != '__': 
-            ref = New(None, forcenewg)
-            o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
-            _ddic.self_dict_getattr_used = True
-            return ref
-    elif _ddic.method_old_class and it[1] == ('FAST', 'self')\
-            and not redefined_attribute:
-        if it[2][0] == 'CONST' and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
-            it[2][1][0:2] != '__': 
-            ref = New(None, forcenewg)
-            o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
-            _ddic.self_dict_getattr_used = True
-            return ref
-    elif t != None and t.descr == types.ModuleType:
-        if it[2][0] == 'CONST' and it[2][1][0:2] != '__' and t.subdescr != None and \
-            ModuleHaveAttr(t.subdescr, it[2][1]):
-            r = Expr1(it[1], o)
-            ref = New(None, forcenewg)
-            o.Raw(ref, ' = PyDict_GetItem(PyModule_GetDict(' + CVar(r) + '), ', it[2], ');')
-            o.INCREF(ref)
-            o.Cls(r)
-            o.Raw('if (', ref, ' == NULL) goto ', labl, ';')
-            UseLabl()
-            return ref
+    if not redefined_attribute and it[2][0] == 'CONST' and it[2][1][0:2] != '__':
+        if it[1] == ('FAST', 'self') and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]):
+            if _ddic.method_new_class: 
+                ref = New(None, forcenewg)
+                o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
+                _ddic.self_dict_getattr_used = True
+                return ref
+            elif _ddic.method_old_class: 
+                ref = New(None, forcenewg)
+                o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
+                _ddic.self_dict_getattr_used = True
+                return ref
+        elif it[1][0] == 'FAST' and it[1][1] != 'self':
+            isattrs = list(Iter3(None, 'AttributeInstance', it[2][1]))
+            if len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
+               current_co.co_varnames.index(it[1][1]) < current_co.co_argcount:
+                s1 = ('STORE_FAST', it[1][1])
+                s2 = ('DELETE_FAST', it[1][1])
+                srepr = repr(_ddic.cmds[1])
+                if not repr(s1) in srepr and not repr(s2) in srepr:
+                    ref = New(None, forcenewg)
+                    o.Raw('if (_' + it[1][1] + '_dict) {')
+                    o.Raw(ref, ' = PyDict_GetItem(_', it[1][1], '_dict, ', it[2], ');')
+                    o.Raw('if (',ref,' == 0) {')
+                    o.Raw('PyErr_Format(PyExc_AttributeError, "Object has no attribute \'%s\'");' % it[2][1])
+                    o.Raw('goto ', labl, ';')
+                    UseLabl()
+                    o.Raw('}')
+                    o.INCREF(ref)
+                    _ddic.dict_getattr_used[it[1][1]] = True
+                    o.Raw('} else {')
+                    o.Stmt(ref, '=', 'PyObject_GetAttr', it[1], it[2])
+                    o.Raw('}')
+                    return ref
+        elif t != None and Is3(t.subdescr, 'AttributeInstance', it[2][1]):
+            if t.descr == T_OLD_CL_INST:
+                r = Expr1(it[1], o)
+                ref = New(None, forcenewg)
+                o.Stmt(ref, '=', 'PyDict_GetItem', '((PyInstanceObject *)' + CVar(r) + ')->in_dict', it[2])
+                o.Cls(r)
+                return ref
+            elif t.descr == T_NEW_CL_INST:
+                r = Expr1(it[1], o)
+                dic = New()
+                o.Raw(dic, ' = *_PyObject_GetDictPtr(',r,');')
+                o.INCREF(dic)
+                o.Cls(r)
+                ref = New(None, forcenewg)
+                o.Stmt(ref, '=', 'PyDict_GetItem', dic, it[2])
+                o.Cls(dic)
+                return ref
+        elif t != None and t.descr == types.ModuleType:
+            if t.subdescr != None and ModuleHaveAttr(t.subdescr, it[2][1]):
+                r = Expr1(it[1], o)
+                ref = New(None, forcenewg)
+                o.Raw(ref, ' = PyDict_GetItem(PyModule_GetDict(' + CVar(r) + '), ', it[2], ');')
+                o.INCREF(ref)
+                o.Cls(r)
+                o.Raw('if (', ref, ' == NULL) goto ', labl, ';')
+                UseLabl()
+                return ref
     elif t != None:
         Debug('Non-Generic GetAttr type', t, it[2], it[1])
-    return common_call(it[0][1:], it, o, typed, forcenewg)
+    Debug('Standard Getattr', it)
+    ref,attr = [Expr1(x, o) if type(x) == tuple and len(x) > 0 else x \
+              for i,x in enumerate(it) if i > 0]
+    newg = New(None, forcenewg)  
+    o.Stmt(newg, '=', 'PyObject_GetAttr', ref, attr)
+    o.Cls(ref,attr)
+    return newg   
     
-    
+def IsAnyClass(nm):
+    if Is3(nm, 'CalcConstOldClass') or Is3(nm, 'CalcConstNewClass'):
+        return True
+    return False
+
 def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     global _n2c, g_acc2, g_refs2
     _v = []
@@ -15294,11 +15376,8 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     if TCmp(it, _v, ('!PyObject_Call', ('!PyObject_GetAttr', '?', ('CONST', '?')), '?', '?')):
         t = TypeExpr(_v[0])
         if t != None and _v[3] == ('NULL',):
-            if t not in _Kl_Simples:
-                if ((Is3(t.subdescr, 'CalcConstOldClass') or \
-                   Is3(t.subdescr, 'CalcConstNewClass')) and \
-                     not Is3(t.subdescr, ('Attribute', _v[1]))) \
-                       or t.subdescr == None:
+            if t not in _Kl_Simples and t.subdescr != None:
+                if IsAnyClass(t.subdescr) and not Is3(t.subdescr, ('Attribute', _v[1])):
                     if Is3(t.subdescr, 'AttributeInstance', _v[1]):       
                         pass
                     elif not Is3(t.subdescr, ('Method', _v[1])):       
@@ -15373,7 +15452,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Raw('PyErr_Format(PyExc_NameError, GLOBAL_NAME_ERROR_MSG, ', '"%s"' % it[1], ');')
         o.Raw('goto ', labl, ';')
         UseLabl()
-        o += '}' 
+        o.Raw('}') 
         o.INCREF(ref)
         return ref
     
@@ -15390,12 +15469,12 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             ref = New()
         return generate_and_or_jumped_stacked(it[1:], o, ref, head == 'AND_JUMPED_STACKED', 0)
     if head in ('AND_BOOLEAN', 'OR_BOOLEAN'):
-        o1, logical = generate_logical_expr(it)
+        o1, logical = generate_logical_expr(it) 
         o.extend(o1)
         return logical
 
     if head in ('AND_JUMP', 'OR_JUMP'):
-        o2,logic = generate_logical_expr(it)
+        o2,logic = shortage_l(generate_logical_expr(it))
         o.extend(o2)
         ref = New(None, forcenewg)
         o.Stmt(ref, '=','PyBool_FromLong', logic)
@@ -15466,7 +15545,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
                 o.CLEAR(n)
 ##            o.Raw(ref2, ' = ', ('CONST', ''), ';')
 ##            o.INCREF(ref2)
-            o += '}'    
+            o.Raw('}')    
 ##            ref2 = New(None,forcenewg)
             cref = New('charref')
             o.Raw(cref, ' = PyMem_Malloc(', n2, ');')
@@ -15474,7 +15553,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             sn1 = CVar(n1)
             o.Raw('for(', sn1, ' = 0; ', sn1, ' < ', n2, '; ', sn1, '++){')
             o.Raw(cref, '[', sn1, '] = ', str(ord(it[1][1])), ';')
-            o += '}'
+            o.Raw('}')
             o.Stmt(ref2, '=', 'PyString_FromStringAndSize', cref, n2)
             o.Raw('PyMem_Free(', cref, ');')
             o.Cls(n1, n2, cref)
@@ -15671,9 +15750,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             else:
                 o.Stmt(ref1, '=', 'PyList_GetItem', ref, 'PyList_GET_SIZE(' + CVar(ref) + ') ' + str(it[2][1]))
             if not islist:
-                o += '} else {'
+                o.Raw('} else {')
                 o.Stmt(ref1, '=', 'PyObject_GetItem', ref, it[2])
-                o += '}'
+                o.Raw('}')
         elif t == Kl_Dict:        
             ref2 = Expr1(it[2], o)
             o.Raw(ref1, ' = PyDict_GetItem(', ref, ', ', ref2, ');')
@@ -15685,7 +15764,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Cls(tup)            
             o.Raw('goto ', labl, ';')
             UseLabl()
-            o += '}' 
+            o.Raw('}') 
             o.INCREF(ref1)
             o.Cls(ref, ref2)
             return ref1
@@ -15716,11 +15795,11 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Stmt('if (PyList_CheckExact(', ref, ')) {')
         o.Stmt(ref1, '=', 'PyList_GetItem', ref, it[2][1])
         if not islist:
-            o += '} else {'
+            o.Raw('} else {')
             ref2 = Expr1(it[2],o)
             o.Stmt(ref1, '=', 'PyObject_GetItem', ref, ref2)
             o.Cls(ref2)
-            o += '}'
+            o.Raw('}')
         o.Cls(ref)
         return ref1
     if head == 'from_ceval_BINARY_SUBSCR' and it[2][0] == '!@PyInt_FromSsize_t':
@@ -15743,7 +15822,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Cls(tup)            
             o.Raw('goto ', labl, ';')
             UseLabl()
-            o += '}' 
+            o.Raw('}') 
             o.INCREF(ref1)
             o.Cls(ref, ref2)
             return ref1
@@ -15760,11 +15839,11 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
                 o.Stmt('if (PyList_CheckExact(', ref, ')) {')
             o.Stmt(ref1, '=', 'PyList_GetItem', ref, it[2][1])
             if not islist:
-                o += '} else {'
+                o.Raw('} else {')
                 ref2 = Expr1(it[2][2],o)
                 o.Stmt(ref1, '=', 'PyObject_GetItem', ref, ref2)
                 o.Cls(ref2)
-                o += '}'
+                o.Raw('}')
         else:    
             ref2 = Expr1(it[2][2],o)
             o.Stmt(ref1, '=', '_c_BINARY_SUBSCR_Int', ref, it[2][1], ref2)
@@ -15784,15 +15863,15 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Stmt(ind, '=', 'PyInt_AsLong', ref1)
             o.Stmt('if (', ind, '< 0) {')
             o.Stmt(ind, '=', ind, '+', 'PyList_GET_SIZE(' + CVar(ref0) + ')')
-            o += '}'
+            o.Raw('}')
             o.Stmt(ref, '=', 'PyList_GetItem', ref0, ind)
             o.Cls(ind)
         if ty_ind == None:
-            o += '} else {'
+            o.Raw('} else {')
         if not IsInt(ty_ind):
             o.Stmt(ref, '=', 'PyObject_GetItem', ref0, ref1)
         if ty_ind == None:
-            o += '}'
+            o.Raw('}')
         o.Cls(ref1)
         o.Cls(ref0)
         return ref
@@ -15820,7 +15899,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Cls(tup)            
         o.Raw('goto ', labl, ';')
         UseLabl()
-        o += '}' 
+        o.Raw('}') 
 
 ##        o.append('if 
         o.INCREF(ref)
@@ -15883,7 +15962,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
                 o.extend(o2)
                 o.Stmt('if (', ind1, '< 0) {')
                 o.Stmt(ind1, '=', ind1, '+', 'PyList_GET_SIZE(' + CVar(ref0) + ')')
-                o += '}'                        
+                o.Raw('}')                        
         elif len(it) == 2:        
             ind1 = New('long')
             o.Stmt(ind1, '=', 'PyList_GET_SIZE', ref0)
@@ -15909,9 +15988,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             elif ref3 != ref:
                 o.Raw(ref, ' = ', ref3, ';')
                 o.INCREF(ref)        
-            o += '} else {'
+            o.Raw('} else {')
             o.INCREF(ref)        
-            o += '}'
+            o.Raw('}')
             if ref3 != ref:
                 o.Cls(ref3)
         else:
@@ -15933,7 +16012,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Raw(ref, ' = PyObject_GetAttr(', ref0, ', ', ref1, ');')
             o.Cls(ref0, ref1)
             o.Raw('if (', ref, ' == NULL && PyErr_ExceptionMatches(PyExc_AttributeError)) {')
-            o += 'PyErr_Clear();'
+            o.Raw('PyErr_Clear();')
             ref3 = GenExpr(it[3], o, ref)
             if istempref(ref3) and istempref(ref) and ref3 != ref:
                 Fatal('Not eq tempref', it, ref3, ref)
@@ -15943,7 +16022,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
 #            o.append('Py_INCREF(' + CVar(ref) + ');')        
             if ref3 != ref:
                 o.Cls(ref3)
-            o += '}'
+            o.Raw('}')
         else:
             Fatal('', it)
 ##        o.append
@@ -15962,16 +16041,16 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Stmt(ind, '=', 'PyInt_AsLong', ref1)
             o.Stmt('if (', ind, '< 0) {')
             o.Stmt(ind, '=', ind, '+', 'PyTuple_GET_SIZE(' + CVar(ref0) + ')')
-            o += '}'
+            o.Raw('}')
             o.Cls(ref1)
             o.Stmt(ref, '=', 'PyTuple_GetItem', ref0, ind)
             o.Cls(ind)
         if ty_ind == None:
-            o += '} else {'
+            o.Raw('} else {')
         if not IsInt(ty_ind):
             o.Stmt(ref, '=', 'PyObject_GetItem', ref0, ref1)
         if ty_ind == None:
-            o += '}'
+            o.Raw('}')
         o.Cls(ref1)
         o.Cls(ref0)
         return ref
@@ -16017,16 +16096,16 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Stmt(Long, '=', 'PyInt_AsLong', ref)
         o.Cls(ref)
         o.Stmt('if (', Long, ' < 0 || ', Long, ' >= 256) {')
-        o += 'PyErr_SetString(PyExc_ValueError, \"chr() arg not in range(256)\");'
+        o.Raw('PyErr_SetString(PyExc_ValueError, \"chr() arg not in range(256)\");')
         o.Raw('goto ', labl, ';')
         UseLabl()
-        o += '}'
-        o += '{'
-        o += 'char __s[1];'        
+        o.Raw('}')
+        o.Raw('{')
+        o.Raw('char __s[1];')        
         o.Raw('__s[0] = (char)', Long, ';')
         ref = New(None, forcenewg)
         o.Stmt(ref, '=', 'PyString_FromStringAndSize', '__s', '1')        
-        o += '}'
+        o.Raw('}')
         o.Cls(Long)
         return ref    
     if head == 'ORD_BUILTIN':
@@ -16043,9 +16122,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.Stmt('if (PyString_CheckExact(', ref, ') && PyString_GET_SIZE(', ref,') == 1) {')
             o.Raw(Long, ' = (long)((unsigned char)*PyString_AS_STRING(', ref, '));')
             o.Stmt(ref2, '=', 'PyInt_FromLong', Long)
-            o += '} else {' 
+            o.Raw('} else {') 
             GenExpr(('!PyCFunction_Call', (load_builtin('ord'),), ('!BUILD_TUPLE', (ref,)), ('NULL',)), o, ref2)
-            o += '}'
+            o.Raw('}')
             o.Cls(Long, ref)
             if istempref(ref):
                 o.Raw('Py_CLEAR(', ref, ');')
@@ -16060,9 +16139,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Stmt('} else if (PyUnicode_Check(', ref, ') && PyUnicode_GET_SIZE(', ref,') == 1) {')
         o.Raw(Long, ' = (long)((wchar_t)*PyUnicode_AS_UNICODE(', ref, '));')
         o.Stmt(ref2, '=', 'PyInt_FromLong', Long)
-        o += '} else {' 
+        o.Raw('} else {') 
         GenExpr(('!PyCFunction_Call', (load_builtin('ord'),), ('!BUILD_TUPLE', (ref,)), ('NULL',)), o, ref2)
-        o += '}'
+        o.Raw('}')
         o.Cls(Long, ref)
         if istempref(ref):
            o.Raw('Py_CLEAR(', ref, ');')
@@ -16094,18 +16173,17 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
 #        print it
         return generate_set_compr(it[1],it[2],o, forcenewg)  
     if head == 'BOOLEAN':
-        o2,logic = generate_logical_expr(it[1])
+        o2,logic = shortage_l(generate_logical_expr(it[1]))
         o.extend(o2)
         ref = New(None, forcenewg)
         o.Stmt(ref, '=','PyBool_FromLong', logic)
         o.Cls(logic)
         return ref
     if head == '1NOT' and it[1][0] == '!BOOLEAN':
-        o1, int_val = generate_logical_expr(it[1])
+        o1, int_val = shortage_l(generate_logical_expr(it[1]))
         o.extend(o1)
         ref = New(None, forcenewg)
-        o.Stmt(int_val, '=', '!', int_val) ## ????????? 
-        o.Stmt(ref, '=','PyBool_FromLong', int_val)
+        o.Stmt(ref, '=','PyBool_FromLong', ConC('!(', int_val, ')'))
         o.Cls(int_val)
         return ref
 
@@ -16126,9 +16204,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         ref = New(None, forcenewg)
         o.Stmt('if (', int_r, '== 1) {')
         o.Stmt(ref, '=', 'Py_True')
-        o += '} else {'
+        o.Raw('} else {')
         o.Stmt(ref, '=', 'Py_False')
-        o += '}'
+        o.Raw('}')
         o.Cls(int_r)
         o.INCREF(ref)
         return ref
@@ -16181,7 +16259,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         ## PopAcc(o, False)
         ## o.Raw('assert(', ref2, ' == Py_None);')
         ## o.Cls(ref2)
-        ## o += '}'
+        ## o.Raw('}')
         ## return ref
 
     if head == 'CALL_CALC_CONST':
@@ -16237,13 +16315,32 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         for i,x in enumerate(refs):              
             if i not in hidden:
                 _refs2.append(x)
-        tupl = (ref, '=', d_nm) + tuple(_refs2)
-        o.Stmt(*tupl)
-        if len(_refs2) > 0:
-            o.Cls(*_refs2)
-            ## for r in _refs2:
-               ## o.Cls(r)
-        return ref
+        if not IsRetVoid(it[1]):        
+            tupl = (ref, '=', d_nm) + tuple(_refs2)
+            o.Stmt(*tupl)
+            if len(_refs2) > 0:
+                o.Cls(*_refs2)
+                ## for r in _refs2:
+                ## o.Cls(r)
+            return ref
+        else:
+            tupl = (d_nm,) + tuple(_refs2)
+            li = ['if (',d_nm, '(']
+            for i, re in enumerate(_refs2):
+                if i > 0:
+                    li.append(', ')
+                li.append(re)
+            li.append(') == -1) goto ')
+            li.append(labl)
+            li.append(';')
+            UseLabl()
+            tupl = tuple(li)    
+            o.Raw(*tupl)
+            if len(_refs2) > 0:
+                o.Cls(*_refs2)
+                ## for r in _refs2:
+                ## o.Cls(r)
+            return ('CONST', None)
 
     if head == 'CALL_CALC_CONST_INDIRECT':
         ## d_nm = '_Direct_' + it[1]
@@ -16335,14 +16432,14 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
 ##            o.append('Py_CLEAR(' + CVar(ref_prev) + ');')
             o.Raw(ref_prev, ' = ', ref, ';')
             o.INCREF(ref_prev)        
-        o += '} else {'
+        o.Raw('} else {')
         ref = GenExpr(it[3], o, ref_prev)
         if ref != ref_prev:
             assert not istempref(ref)
 ##            o.append('Py_CLEAR(' + CVar(ref_prev) + ');')
             o.Raw(ref_prev, ' = ', ref, ';')
             o.INCREF(ref_prev)        
-        o += '}'
+        o.Raw('}')
         return ref_prev        
                 
 #
@@ -16378,7 +16475,31 @@ def call_fastcall(it, o, ref1, forcenewg):
     o.Cls(ref1)    
     return ref
 
+def CanBeMethodOf(it):
+    _v = []
+    if TCmp(it, _v, ('!PyObject_Call', ('!PyObject_GetAttr', '?', ('CONST', '?')), '?', '?')):
+        islis = list(Iter3(None, ('Method', _v[1]), None))
+        if len(islis) == 0:
+            return []
+        di = dict([(a,c) for a,b,c in islis])
+        while True:
+            l = len(di)
+            for k in di.keys():
+                for a1, b1, c1 in Iter3(None, 'Derived', ('!CALC_CONST', k)):
+                    if a1 not in di:
+                        di[a1] = di[k]
+            if len(di) == l:
+                break 
+        if len(dict.fromkeys(di.values())) == 1:
+            pass
+        elif len(dict.fromkeys(di.values())) == len(di):
+            pass    
+        pprint.pprint(di)               
+#        pprint.pprint (islis)
+        pprint.pprint (it)
+
 def generate_PyObject_Call_nokey(it, o, forcenewg):
+   
     if it[1][0] == '!LOAD_GLOBAL' and it[1][1] in d_built:
         skip_built = False
         if it[2][0] == '!BUILD_TUPLE':
@@ -16393,11 +16514,11 @@ def generate_PyObject_Call_nokey(it, o, forcenewg):
                 proc = Expr1(it[1], o)   
                 o.Stmt('if (', proc, '==', load_builtin(it[1][1]), ') {')
                 ref = GenExpr(cm, o,forcenewg)
-                o += '} else {'
+                o.Raw('} else {')
                 tupl = Expr1(it[2], o)
                 o.Stmt(ref, '=', 'FirstCFunctionCall', proc, tupl, ('NULL',))
                 o.Cls(tupl)
-                o += '}'
+                o.Raw('}')
                 o.Cls(proc)
                 return ref
 
@@ -16406,6 +16527,26 @@ def generate_PyObject_Call_nokey(it, o, forcenewg):
     ## if it[1][0] == '!PyObject_GetAttr' and \
        ## it[2][0] in ('!BUILD_TUPLE', 'CONST') and len(it[2][1]) < 15:
         ## return call_fastcall(it, o, None, forcenewg) 
+#    _v = []
+#    CanBeMethodOf(it)
+    ## ('CALL_METHOD_CONDITIONAL', obj, attr, {tuple_of_nmclass, codenm}, args)
+    ## if TCmp(it, _v, ('!PyObject_Call', ('!PyObject_GetAttr', '?', ('CONST', '?')), '?', '?')):
+        
+        ## islis = list(Iter3(None, ('Method', _v[1]), None))
+        ## l = []
+        ## l.extend(islis)
+        ## di = {}
+        ## for a,b,c in islis:
+            ## di[a] = True
+        ## print di.keys()    
+        ## l = len(di)
+        ## for a,b,c in islis:
+            ## for a1, b1, c1 in Iter3(None, 'Derived', ('!CALC_CONST', a)):
+                ## if a1 not in di:
+                    ## print 'a1 b1 c1', a1, b1, c1
+        ## print 'may be'
+## #        pprint.pprint (islis)
+        ## pprint.pprint (it)
     proc = GenExpr(it[1],o)
     if TypeExpr(it[1]) != Kl_BuiltinFunction and not is_mkfunc_const(proc, it[1]) and \
        it[2][0] in ('!BUILD_TUPLE', 'CONST') and len(it[2][1]) < 15 and it[1][0] != '!LOAD_BUILTIN':
@@ -16518,9 +16659,9 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
                 op = '<<'
             o.Raw(new, ' = PyInt_FromLong(', n1, op, n2, ');')
         if check and not skip_int:
-            o += '} else {'
+            o.Raw('} else {')
             o.Stmt(new, '=', head[1:], ref1, ref2)
-            o += '}'
+            o.Raw('}')
         elif check and skip_int:    
             o.Stmt(new, '=', head[1:], ref1, ref2)
         elif not check and not skip_int:
@@ -16574,10 +16715,10 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
             ## o.Raw('goto',       
         ## if check:    
             ## if not skip_int:
-                ## o += '} else {'
+                ## o.Raw('} else {')
             ## o.Stmt(new, '=', head[1:], ref1, ref2)
             ## if not skip_int:
-                ## o += '}'
+                ## o.Raw('}')
         ## else:
             ## o.Stmt(new, '=', head[1:], ref1, ref2)
         ## o.Cls(ref1, ref2)
@@ -16621,14 +16762,14 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
             else:
                 o.Stmt('if (PyInt_CheckExact(', ref1, ') && PyInt_CheckExact(', ref2, ')) {')
             o.Raw(new, ' = PyInt_Type.tp_as_number->nb_multiply(', ref1, ', ', ref2, ');')
-            o += '} else {'
+            o.Raw('} else {')
         else:    
             if not skip_float:    
-                o += '} else {'
+                o.Raw('} else {')
             else:    
                 o.Stmt('{')
         o.Stmt(new, '=', head[1:], ref1, ref2)
-        o += '}'
+        o.Raw('}')
         o.Cls(ref1, ref2)
         return new
 
@@ -16804,18 +16945,18 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
         if onlyint and t != Kl_Short:
             o.Stmt('if (0) {', nlabel, ':')
             o.Stmt(new, '=', head[1:], ref1)
-            o += '}'
+            o.Raw('}')
         elif onlyint or onlyfloat:
             pass
         else:
             if canbeint:
                 o.Stmt('} else {', nlabel, ':')
                 o.Stmt(new, '=', head[1:], ref1)
-                o += '}'
+                o.Raw('}')
             elif canbefloat:    
-                o += '} else {'
+                o.Raw('} else {')
                 o.Stmt(new, '=', head[1:], ref1)
-                o += '}'
+                o.Raw('}')
             else:
                 o.Stmt(new, '=', head[1:], ref1)
         o.Cls(ref1)
@@ -16957,15 +17098,15 @@ def GenPlusMinus(head,it,o,forcenewg, skip_float):
             o.Raw(new, ' = PyFloat_FromDouble(', s1, ' - ', s2, ');')
     if canbeint:
         if not canbefloat and not can_else:
-            pass ##o += '}'
+            pass ##o.Raw('}')
         else:    
             o.Stmt('} else {', nlabel, ':')
             o.Stmt(new, '=', head, ref1, ref2)
-            o += '}'
+            o.Raw('}')
     elif canbefloat:    
-        o += '} else {'
+        o.Raw('} else {')
         o.Stmt(new, '=', head, ref1, ref2)
-        o += '}'
+        o.Raw('}')
     else:
         o.Stmt(new, '=', head, ref1, ref2)
     o.Cls(ref1, ref2)
@@ -17245,7 +17386,7 @@ def generate_and_or_jumped_stacked(it, o, prevref, is_and, n):
     o.Stmt('if (', or_and, ') {')
     o.CLEAR(prevref)
     generate_and_or_jumped_stacked(it[1:], o, prevref, is_and, n + 1)
-    o += '}'
+    o.Raw('}')
     o.Cls(or_and)
     return prevref  
 
