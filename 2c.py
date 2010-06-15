@@ -2421,6 +2421,11 @@ def half_recompile(cmds, co):
                                 a[1] != b[1] and f[0] != b[1] :  
                     rpl(cmds, [a, ('J_BASE_SET_COMPR', b[1], (cmd2mem(c),), (b[2], None, ())),f]                )
                     continue    
+                if SCmp(cmds, i, ((':', 4), 'J_LOOP_VARS', '>', '>', \
+                                ('MAP_ADD', 2), 'JUMP', '.:')) and \
+                                a[1] != b[1] and g[0] != b[1] :  
+                    rpl(cmds, [a, ('J_BASE_MAP_COMPR', b[1], (cmd2mem(d),cmd2mem(c),), (b[2], None, ())),g]   )
+                    continue    
                 if SCmp(cmds, i, ((':', 5), 'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP', '>', \
                                 'LIST_APPEND', 'JUMP', '.:')) and \
                                 a[1] != b[1] and g[0] != b[1] and len(e) == 2:  
@@ -2548,6 +2553,16 @@ def half_recompile(cmds, co):
                         continue 
                     else:
                         cmds[i:i+4] = [('!SET_COMPR', c[2], (c[3][0], (cmd2mem(b),), c[3][2]))]
+                        continue   
+                    
+            if a == ('!PyDict_New',) and b == ('LOAD_FAST', '.0') and \
+               c[0] == 'J_BASE_MAP_COMPR' and d == ('.:', c[1]):
+                if c[3][1] is None:
+                    if c[3][2] == ():
+                        cmds[i:i+4] = [('!MAP_COMPR', c[2], (c[3][0], (cmd2mem(b),), None))]
+                        continue 
+                    else:
+                        cmds[i:i+4] = [('!MAP_COMPR', c[2], (c[3][0], (cmd2mem(b),), c[3][2]))]
                         continue   
 
                      
@@ -11684,6 +11699,20 @@ def generate_rich_compare(it,logic,o):
         o.Raw('}')
         o.Cls(ref1, ref2)
         return o, logic
+
+    if t1 is None and t2 == Kl_Int:
+        if op in op_to_oper:
+            ref1 = Expr1(it[1],o)   
+            ref2 = Expr1(it[2],o)   
+            o.Raw('if (PyInt_CheckExact(', ref1, ')) {')
+            int1 = ConC('PyInt_AS_LONG(',ref1,')') 
+            int2 = ConC('PyInt_AS_LONG(',ref2,')') 
+            o.Raw(logic, ' = ', int1, op_to_oper[op], int2, ';')
+            o.Raw('} else {')
+            o.Stmt(logic, '=', 'PyObject_RichCompareBool', ref1, ref2, it[3])
+            o.Raw('}')
+            o.Cls(ref1, ref2)
+            return o, logic
     
     if t1 == Kl_Short and t2 is None and op in op_to_oper:
         o1,size_t_1 = shortage(generate_ssize_t_expr(it[1]))
@@ -12324,10 +12353,6 @@ def generate_for_enumerate_tuple_new(it,o, store1, store2, iter):
     del dropped_temp[-1]
     o.Cls(riter, pos_iter) 
 
-## TCmp(it[0], v,  ('(FOR', ('?', '?'), \
-                ## ('!PyObject_Call', ('!PyObject_GetAttr', '?', ('CONST', 'iteritems')), \
-                        ## ('CONST', ()), ('NULL',)))):
-
 def generate_for_iteritems_generator_standard(it,o):
     global try_jump_context, dropped_temp
 
@@ -12554,15 +12579,6 @@ def generate_for_xrange_new(it,o):
 
     assert len(it) in (3,5)
 
-## def is_iter_rng(iter):
-    ## v = []
-    ## rng = {'range':0, 'xrange':0}
-    ## is_need = TCmp(iter, v, ('!PyObject_Call', ('!LOAD_BUILTIN', rng), '?', '?'))
-    ## if is_need:
-        ## if v[1][0] == 'CONST' and len(v[1][1]) > 0 and type(v[1][1][0]) is long:
-            ## return False
-    ## return is_need    
-
 def expanded_range(iter):
     v = []
     if TCmp(iter, v, ('!BUILD_LIST', '?')):
@@ -12733,15 +12749,6 @@ def update_v_0_1(v):
     except:
         pass
            
-## def update_v_0_2(v):
-    ## try:
-        ## if v[0]:
-            ## v[0] = False
-        ## else:
-            ## v[0] = True
-    ## except:
-        ## pass
-
 def repl_list(a, up):
     i = 0
     aa = a[:]
@@ -12762,7 +12769,6 @@ def repl_list(a, up):
             aa[i:i+1] = s1
             updated = True
             i -= 10
-##            #print '=1'
             continue
         
         if i < len(aa) - 2 and \
@@ -12771,22 +12777,18 @@ def repl_list(a, up):
            TCmp(aa[i+2], v2, ('STORE', ('?',), \
                         (('!PyObject_Call', ('!LOAD_NAME', v[0]), \
                           ('CONST', ()), ('NULL',)),))):  
-##            if subroutine_can_be_direct(v[1], 0):
-##                _3(v[1], 'ArgCallCalculatedDef', ('CONST', ()))
             ret2 = ('!PyObject_Call', ('!LOAD_NAME', v[0]), ('CONST', ()), ('NULL',)) # unchanged
             newstor = ('STORE', (v2[0],), (call_calc_const(v[1], ('CONST', ()), ret2),))
             if aa[i+2] != newstor:
                 aa[i+2] = newstor    
                 updated = True
                 i -= 10
-##                #print '=2'
                 continue
 
         if i < len(aa) - 2 and aa[i][0] == '.L' == aa[i+1][0]:
                 del aa[i]
                 updated = True
                 i -= 10
-##                #print '=3'
                 continue
 
         v = []
@@ -12795,7 +12797,6 @@ def repl_list(a, up):
             del aa[i]
             updated = True
             i -= 10
-##            #print '=4'
             continue
         if TCmp(s, v, ('SET_EXPRS_TO_VARS',
             (('STORE_NAME', '?'), ('STORE_NAME', '?')),
@@ -12805,14 +12806,12 @@ def repl_list(a, up):
             aa[i:i+1] = s1
             updated = True
             i -= 10
-            #print '=5'
             continue
         if i+1 < len(aa) and len(s) > 0 and s[0] == 'RETURN_VALUE' and \
            aa[i+1][0] in ('STORE', 'UNPUSH', '.L', 'RETURN_VALUE'):
             del aa[i+1]
             updated = True
             i -= 10
-            #print '=6'
             continue
             
         if TCmp(s, v, ('UNPUSH', ('!PyObject_Call', 
@@ -12822,7 +12821,6 @@ def repl_list(a, up):
             aa[i:i+1] = s1
             updated = True
             i -= 10
-            #print '=7'
             continue
         s_ = []
         if type(s) is tuple and len(s) > 1 and s[0] == 'UNPUSH' and s[1][0] == '!PyObject_Call' and\
@@ -12835,7 +12833,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=8'
                     continue
             ## if TCmp(s_, v, ('?', 'remove', ('CONST', ('?',)))): # worked like .index() -- not
                 ## if TypeExpr(v[0]) == Kl_List and v[1] >= 0:
@@ -12851,7 +12848,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=9'
                     continue
             if TCmp(s_, v, ('?', 'append', ('!BUILD_TUPLE', ('?',)))):
                 if TypeExpr(v[0]) == Kl_List:
@@ -12859,7 +12855,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=10'
                     continue
             ## if TCmp(s_, v, ('?', 'update', ('!BUILD_TUPLE', ('?',)))):
                 ## if TypeExpr(v[0]) == Kl_Dict:
@@ -12882,7 +12877,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=11'
                     continue
             if TCmp(s_, v, ('?', 'reverse', ('CONST', ()))):
                 if TypeExpr(v[0]) == Kl_List:
@@ -12890,7 +12884,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=12'
                     continue
             if TCmp(s_, v, ('?', 'insert', ('CONST', ('?', '?')))):
                 if TypeExpr(v[0]) == Kl_List:
@@ -12898,7 +12891,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=13'
                     continue
             if TCmp(s_, v, ('?', 'insert', ('!BUILD_TUPLE', (('CONST', '?'), '?')))):
                 if TypeExpr(v[0]) == Kl_List:
@@ -12906,7 +12898,6 @@ def repl_list(a, up):
                     aa[i:i+1] = s1
                     updated = True
                     i -= 10
-                    #print '=14'
                     continue
 
         if type(s) is tuple and len(s) > 0 and s[0] == 'STORE':
@@ -12923,7 +12914,6 @@ def repl_list(a, up):
                     aa[i:i+1] = new_a
                     updated = True
                     i -= 10
-                    #print '=15'
                     continue
 
         if i+5 <= len(aa) and s == ('(TRY',) and type(aa[i+1]) is list and \
@@ -12933,7 +12923,6 @@ def repl_list(a, up):
             aa[i:i+5] = aa[i+1]
             updated = True
             i -= 10
-            #print '=16'
             continue
         v = []
         if i+5 <= len(aa) and s == ('(TRY',) and type(aa[i+1]) is list and \
@@ -12973,7 +12962,6 @@ def repl_list(a, up):
             aa[i:i+7] = aa[i+5]
             updated = True
             i -= 10
-            #print '=20'
             continue
 
           
@@ -12986,7 +12974,6 @@ def repl_list(a, up):
                     aa[i:i1+1] = [('(TRY_FINALLY',), stm[1], (')(FINALLY',), stm[3], (')ENDTRY_FINALLY',)]
                     updated = True
                     i -= 10
-                    #print '=21'
                     continue
                 if tr[0] == ('(TRY',) and get_closed_pair(stm[1],0)+1 == len(stm[1]):
                     old1 = aa[i+1]
@@ -12994,7 +12981,6 @@ def repl_list(a, up):
                     aa[i:i1+1] = [('(TRY_FINALLY',), old1, (')(FINALLY',), new1, (')ENDTRY_FINALLY',)]
                     updated = True
                     i -= 10
-                    #print '=22'
                     continue
                 
                 new1 = aa[i1-1]
@@ -13003,7 +12989,6 @@ def repl_list(a, up):
                 aa[i:i1-2] = [('(TRY_FINALLY',), old1, (')(FINALLY',), new1, (')ENDTRY_FINALLY',)]
                 updated = True
                 i -= 10
-                #print '=23'
                 continue
                 
         if TCmp(s, v, ('STORE', (('SET_VARS', '?'),), (('!BUILD_LIST', '?'),))) and len(v[0]) == len(v[1]):
@@ -13014,14 +12999,12 @@ def repl_list(a, up):
                 aa[i:i+1] = s1
                 updated = True
                 i -= 10
-                #print '=24'
                 continue
         v = []    
         if TCmp(s, v, ('UNPUSH', ('CONST', '?'))):
             aa[i:i+1] = []
             updated = True
             i -= 10
-            #print '=25'
             continue
         if type(s) is tuple and len(s) > 0 and s[0] == '(IF':
             if TCmp(s, v, ('(IF', ('CONST', '?'), '?')):
@@ -13030,7 +13013,6 @@ def repl_list(a, up):
                     aa[i] = ('(IF', ('CONST', v[0]), v[1])
                     updated = True
                     i -= 10
-                    #print '=26'
                     continue            
             v = []
             if TCmp(s, v, ('(IF', ('CONST', '?'))):
@@ -13039,7 +13021,6 @@ def repl_list(a, up):
                     aa[i] = ('(IF', ('CONST', v[0]))
                     updated = True
                     i -= 10
-                    #print '=26'
                     continue            
             v = []                    
             if TCmp(s, v, ('(IF', ('CONST', False), '?')) and type(aa[i+1]) is list and \
@@ -13047,14 +13028,12 @@ def repl_list(a, up):
                 del aa[i:i+3]
                 updated = True
                 i -= 10
-                #print '=27'
                 continue
             if TCmp(s, v, ('(IF', ('CONST', True), '?')) and type(aa[i+1]) is list and \
             TCmp(aa[i+2],v0, (')ENDIF',)):
                 aa[i:i+3] = aa[i+1]
                 updated = True
                 i -= 10
-                #print '=28'
                 continue
     
     
@@ -13063,14 +13042,12 @@ def repl_list(a, up):
                 del aa[i:i+3]
                 updated = True
                 i -= 10
-                #print '=29'
                 continue
             if TCmp(s, v, ('(IF', ('CONST', True))) and type(aa[i+1]) is list and \
             TCmp(aa[i+2],v0, (')ENDIF',)):
                 aa[i:i+3] = aa[i+1]
                 updated = True
                 i -= 10
-                #print '=30'
                 continue
     
             if TCmp(s, v, ('(IF', ('CONST', False), '?')) and type(aa[i+1]) is list and \
@@ -13079,7 +13056,6 @@ def repl_list(a, up):
                 aa[i:i+5] = aa[i+3]
                 updated = True
                 i -= 10
-                #print '=31'
                 continue
             if TCmp(s, v, ('(IF', ('CONST', True), '?')) and type(aa[i+1]) is list and \
             TCmp(aa[i+2],v0, (')(ELSE',)) and type(aa[i+3]) is list and \
@@ -13087,7 +13063,6 @@ def repl_list(a, up):
                 aa[i:i+5] = aa[i+1]
                 updated = True
                 i -= 10
-                #print '=32'
                 continue
     
             if TCmp(s, v, ('(IF', ('CONST', False))) and type(aa[i+1]) is list and \
@@ -13096,7 +13071,6 @@ def repl_list(a, up):
                 aa[i:i+5] = aa[i+3]
                 updated = True
                 i -= 10
-                #print '=33'
                 continue
             if TCmp(s, v, ('(IF', ('CONST', True))) and type(aa[i+1]) is list and \
             TCmp(aa[i+2],v0, (')(ELSE',)) and type(aa[i+3]) is list and \
@@ -13104,7 +13078,6 @@ def repl_list(a, up):
                 aa[i:i+5] = aa[i+1]
                 updated = True
                 i -= 10
-                #print '=34'
                 continue
         if TCmp(s, v, ('RETURN_VALUE', \
                          ('!PyObject_Call', \
@@ -13114,7 +13087,6 @@ def repl_list(a, up):
             aa[i:i+1] = [('UNPUSH', s[1]), (s[0], ('CONST', None))]
             updated = True
             i -= 10
-            #print '=35'
             continue
         i += 1    
     if updated:
@@ -13174,12 +13146,8 @@ def to_const_meth_2(obj, meth, args):
     return None       
 
 def cond_expr_module(t, ret):
-#    try:
-        this,d2 = MyImport(t.subdescr)
-        return ret[2]
-#    except:
-#        pass
-#    return None
+    this,d2 = MyImport(t.subdescr)
+    return ret[2]
 
 def if_expr_1(ret):
     try:
@@ -14415,10 +14383,7 @@ def TypeExpr(ret):
 
 def upgrade_op2(ret, nm = None):    
     v = []
-##    cnt = sys.getrefcount(0)
     if direct_call and can_generate_c(current_co):
-#    if direct_call:
-##        if sys.getrefcount(0) > cnt: print '<> -2', sys.getrefcount(0) - cnt
         if TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', '?'),\
                     ('!BUILD_TUPLE', '?'), ('NULL',))) and \
                     v[0] in val_direct_code: ## and \
@@ -14432,26 +14397,20 @@ def upgrade_op2(ret, nm = None):
                 ('!BUILD_TUPLE', '?'), ('NULL',))) :
             if not Is3(v[0][0], 'HaveMetaClass'): #have_metaclass(v[0][0]):
                 ret = ('!CLASS_CALC_CONST', v[0][0], ('!BUILD_TUPLE', v[1]))
-##            if sys.getrefcount(0) > cnt: print '<> 3', sys.getrefcount(0) - cnt
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstOldClass:'),\
                 ('CONST', '?'), ('NULL',))):
             if not Is3(v[0][0], 'HaveMetaClass'):  ## and not have_metaclass(v[0][0]):
                 ret = ('!CLASS_CALC_CONST', v[0][0], ('CONST', v[1]))
-##            if sys.getrefcount(0) > cnt: print '<> 4', sys.getrefcount(0) - cnt
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstNewClass:'),\
                 ('!BUILD_TUPLE', '?'), ('NULL',))):
             ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('!BUILD_TUPLE', v[1]))
-##            if sys.getrefcount(0) > cnt: print '<> 5', sys.getrefcount(0) - cnt
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstNewClass:'),\
                 ('CONST', '?'), ('NULL',))):
             ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('CONST', v[1]))
-##            if sys.getrefcount(0) > cnt: print '<> 6', sys.getrefcount(0) - cnt
-##    if sys.getrefcount(0) > cnt: print '<> 7', sys.getrefcount(0) - cnt
     v = []
     if TCmp(ret, v, ('IMPORT_FROM_AS', '?', ('CONST', -1), ('CONST', '?'), '?')):
         sreti = []
         imp, consts_, stores = v
-##        if sys.getrefcount(0) > cnt: print '<> 8', sys.getrefcount(0) - cnt
         for i, reti in enumerate(stores):
             v = []
             if type(reti) is tuple and len(reti) == 2 and \
@@ -14459,22 +14418,17 @@ def upgrade_op2(ret, nm = None):
                reti[1] in all_calc_const:
                 reti = ('STORE_CALC_CONST', reti)
             sreti.append(reti)        
-##        if sys.getrefcount(0) > cnt: print '<> 9', sys.getrefcount(0) - cnt
         return ret[:4] + (tuple(sreti),)    
     v0 = []
-##    if sys.getrefcount(0) > cnt: print '<> 10', sys.getrefcount(0) - cnt
     if len(ret) == 3 and ret[0] == 'SEQ_ASSIGN':
         sreti = []
-##        if sys.getrefcount(0) > cnt: print '<> 11', sys.getrefcount(0) - cnt
         for reti in ret[1]:
             v = []
-##            if sys.getrefcount(0) > cnt: print '<> 12', sys.getrefcount(0) - cnt
             if type(reti) is tuple and len(reti) == 2 and \
                reti[0] in ('STORE_NAME', 'STORE_GLOBAL') and \
                reti[1] in all_calc_const:
                 calc_const_value[v[0][0]] = ret[2]
                 reti = ('STORE_CALC_CONST', reti)
-##                if sys.getrefcount(0) > cnt: print '<> 13', sys.getrefcount(0) - cnt
             elif reti[0] == 'SET_VARS':    
                 sretii = []
                 for retii in reti[1]:
@@ -14484,41 +14438,30 @@ def upgrade_op2(ret, nm = None):
                         retii = ('STORE_CALC_CONST', retii)
                     sretii.append(retii)
                 reti = ('SET_VARS', tuple(sretii))        
-##                if sys.getrefcount(0) > cnt: print '<> 14', sys.getrefcount(0) - cnt
             sreti.append(reti)        
-##        if sys.getrefcount(0) > cnt: print '<> 15', sys.getrefcount(0) - cnt
         return (ret[0], tuple(sreti), ret[2])    
     elif len(ret) == 3 and ret[0] == 'SET_EXPRS_TO_VARS':    
         sretii = []
-##        if sys.getrefcount(0) > cnt: print '<> 16', sys.getrefcount(0) - cnt
         for retii in ret[1]:
             if type(retii) is tuple and len(retii) == 2 and \
                 retii[0] in ('STORE_NAME', 'STORE_GLOBAL') and \
                 retii[1] in all_calc_const:
                 retii = ('STORE_CALC_CONST', retii)
             sretii.append(retii)
-##            if sys.getrefcount(0) > cnt: print '<> 17', sys.getrefcount(0) - cnt
-##        if sys.getrefcount(0) > cnt: print '<> 18', sys.getrefcount(0) - cnt
         return ('SET_EXPRS_TO_VARS', tuple(sretii), ret[2])        
 
     elif TCmp(ret, v0, ('STORE', (('?', '?'),), ('?',))) and \
        v0[0] in ('STORE_NAME', 'STORE_GLOBAL') and v0[1] in all_calc_const:
         v = [(v0[1], '', all_calc_const[v0[1]]), v0[2]]
         calc_const_value[v[0][0]] = v[1]
-##        if sys.getrefcount(0) > cnt: print '<> 19', sys.getrefcount(0) - cnt
         return ('STORE', (('STORE_CALC_CONST', ret[1][0]),), ret[2])    
     elif type(ret) is tuple and len(ret) == 2 and \
        ret[0] in ('!LOAD_NAME', '!LOAD_GLOBAL', '!PyDict_GetItem(glob,') and \
        ret[1] in all_calc_const:
         ret = calc_const_to(ret[1])    
-##        if sys.getrefcount(0) > cnt: print '<> 20', sys.getrefcount(0) - cnt
     v = []    
-##    if sys.getrefcount(0) > cnt: print '<> 21', sys.getrefcount(0) - cnt
-
     ret = repl_collected_module_attr(ret)    
-##    if sys.getrefcount(0) > cnt: print '<> 22', sys.getrefcount(0) - cnt
     ret = repl(ret) 
-##    if sys.getrefcount(0) > cnt: print '<> 23', sys.getrefcount(0) - cnt
     return ret        
 
 def upgrade_repl(ret, nm = None):    
@@ -14652,11 +14595,9 @@ def tree_pass(a, upgrade_op, up, nm):
             return a
         while True:   
             r = tuple([tree_pass(i, upgrade_op,a, nm) for i in a])
-            notchanged = len(r) == len(a) and all([id(r[i]) == id(a[i]) for i,x in enumerate(r)])
+            notchanged = len(r) == len(a) and all([r[i] is a[i] for i,x in enumerate(r)])
             if notchanged:
                 r = a
-            ## else:
-                ## print 'old', a, 'new', r    
             r2 = upgrade_op(r,nm)
             notchanged = notchanged and r2 == r 
             if notchanged:
@@ -14668,7 +14609,7 @@ def tree_pass(a, upgrade_op, up, nm):
         while True:   
             a = repl_list(a,up)
             r = [tree_pass(i, upgrade_op, a, nm) for i in a]
-            notchanged = len(r) == len(a) and all([id(r[i]) == id(a[i]) for i,x in enumerate(r)])
+            notchanged = len(r) == len(a) and all([r[i] is a[i] for i,x in enumerate(r)])
             if notchanged:
                 r = a
             assert len(r) > 0
@@ -14685,7 +14626,7 @@ def ortogonal(a, upgrade,up=None):
         if len(a) > 0 and a[0] == 'CONST':
             return a
         r = tuple([ortogonal(i, upgrade,a) for i in a])
-        if all([r[i] == a[i] for i,x in enumerate(r)]):
+        if all([r[i] is a[i] for i,x in enumerate(r)]):
             r = a
         while True:   
             r2 = upgrade(r)
@@ -14696,7 +14637,7 @@ def ortogonal(a, upgrade,up=None):
     if type(a) is list:
         a = repl_list(a,up)
         r = [ortogonal(i, upgrade, a) for i in a]
-        if all([r[i] == a[i] for i,x in enumerate(r)]):
+        if all([r[i] is a[i] for i,x in enumerate(r)]):
             r = a
         while True:   
             r2 = upgrade(r)
@@ -14904,12 +14845,6 @@ def generate_list_compr(val, descr_compr, o, forcenewg):
         generate_list_compr_enumerate(acc0, val, store[0], store[1], \
                                       expr[0][2][1][0], cond, o)
         return acc0                             
-    ## if 'iteritems' in repr(descr_compr):
-        ## pprint.pprint(descr_compr)
-    ## if 'iterkeys' in repr(descr_compr):
-        ## pprint.pprint(descr_compr)
-    ## if 'itervalues' in repr(descr_compr):
-        ## pprint.pprint(descr_compr)
     recursive_gen_list_compr(acc0, val, store,expr, cond, descr_compr[3:], o)
     return acc0
 
@@ -14960,14 +14895,9 @@ def generate_set_compr(val, descr_compr, o, forcenewg):
     return acc0
 
 def recursive_gen_set_compr(acc, val, store,expr, cond,tail, o):
-#    print expr
     assert len(expr) == 1
     assert cond is None or len(cond) == 1
-#    print expr
     ref_iter = Expr1(expr[0], o)
-#    ref_iter = New()
-#    o.Stmt(ref_iter, '=', 'PyObject_GetIter', ref_expr)
-#    o.Cls(ref_expr)
     o.Stmt('for (;;) {')
     ref_temp = New()
     o.Stmt(ref_temp, '=', 'PyIter_Next', ref_iter)
@@ -14998,6 +14928,51 @@ def recursive_gen_set_compr(acc, val, store,expr, cond,tail, o):
     o.Raw('}')
     o.Cls(ref_iter)
     return acc
+
+def generate_map_compr(val, descr_compr, o, forcenewg):
+    acc0 = GenExpr(('!BUILD_MAP', ()),o, forcenewg)
+    store,expr,cond = descr_compr[0:3]
+
+    v = []
+    recursive_gen_map_compr(acc0, val, store,expr, cond, descr_compr[3:], o)
+    return acc0
+
+def recursive_gen_map_compr(acc, val, store,expr, cond,tail, o):
+    assert len(expr) == 1
+    assert cond is None or len(cond) == 1
+    ref_iter = Expr1(expr[0], o)
+    o.Stmt('for (;;) {')
+    ref_temp = New()
+    o.Stmt(ref_temp, '=', 'PyIter_Next', ref_iter)
+    o.Raw('if (PyErr_Occurred()) goto ', labl, ';')
+    UseLabl()
+    o.Stmt('if (!', ref_temp, '){ break; }')
+    if len(store) == 1:
+        generate_store(store[0], ref_temp, o, 'PyIter_Next')
+    else:  
+        if store is not None:  
+            generate_store(('SET_VARS', store), ref_temp, o, 'PyIter_Next')
+    o.ZeroTemp(ref_temp)  
+
+    if cond is not None:
+        o1, cond_var = shortage(generate_logical_expr(cond[0]))
+        o.extend(o1)
+        o.Stmt('if (', cond_var, '){')
+        o.Cls(cond_var)
+    if len(tail) == 0:
+        ref_k = Expr1(val[0], o)
+        ref_v = Expr1(val[1], o)
+        o.Stmt('PyDict_SetItem', acc, ref_k, ref_v)
+        o.Cls(ref_k, ref_v)
+    else:
+        store1,expr1, cond1 = tail[0:3]
+        recursive_gen_map_compr(acc, val, store1,expr1, cond1, tail[3:], o)
+    if cond is not None:
+        o.Raw('}')
+    o.Raw('}')
+    o.Cls(ref_iter)
+    return acc
+
 
 def AssignCalcConst(nm, ref, o, expr):
     if nm in mnemonic_constant:
@@ -15304,13 +15279,6 @@ def handle_unpack_except(o, src_len, trg_len):
     UseLabl()
     o.Raw('}')    
 
-    ## o.append('if (' + CVar(ref1) + ' == NULL) {')
-    ## o.append('if (PyErr_ExceptionMatches(PyExc_AttributeError)) {')
-    ## o.append('PyErr_Format(PyExc_ValueError, ' + ('"cannot import name %s"' % it[3][1][i]) + ');')
-    ## o.Raw('}')
-    ## o.append('goto ' + CVar(labl) + ';')
-    ## UseLabl()
-    ## o.Raw('}')    
 def mass_store(o,ref,its,expr):
     islist = False
     t = TypeExpr(expr)
@@ -15655,9 +15623,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     global _n2c, g_acc2, g_refs2
     _v = []
  
-    ## if forcenewg is not None and it[0] == 'CONST':
-        ## o.Stmt(forcenewg, '=', it)
-        ## return forcenewg
     if forcenewg is not None and it[0] in tags_one_step_expr:
         Debug('Copy unhandled', forcenewg, '=', it)
     if TCmp(it, _v, ('!PyObject_Call', ('!PyObject_GetAttr', '?', ('CONST', '?')), '?', '?')):
@@ -15730,8 +15695,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     if tempor and head == 'LOAD_NAME':
         return GenExpr(('!c_LOAD_NAME', 'f', ('CONST', it[1])),o, forcenewg)
     if tempor and head == 'LOAD_GLOBAL' and it[1] not in d_built and it[1][0] != '_' and not redefined_all:
-#        return GenExpr(('!PyDict_GetItem', 'glob', ('CONST', it[1])),o, forcenewg)
-    
         ref = New(None, forcenewg)
         o.Raw('if((', ref, ' = PyDict_GetItem( glob, ', ('CONST', it[1]), ')) == 0) {')
         o.Raw('PyErr_Format(PyExc_NameError, GLOBAL_NAME_ERROR_MSG, ', '"%s"' % it[1], ');')
@@ -15741,12 +15704,10 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.INCREF(ref)
         return ref
     
-    
     if tempor and head == 'LOAD_GLOBAL':
         return GenExpr(('!c_LOAD_GLOBAL', ('CONST', it[1]), hash(it[1])),o, forcenewg)
     if tempor and head == 'LOAD_BUILTIN':
         tempor = False
-#        Debug('Generate builtin: %s' % it[1])
         return ('BUILTIN', it[1])
     if head in ('OR_JUMPED_STACKED', 'AND_JUMPED_STACKED'):
         ref = forcenewg
@@ -15787,22 +15748,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             o.ZeroTemp(g)  
          o.ClsFict(g)
       return newg
-
-
-      ## li = []
-      ## for x in it[1]:  
-         ## g = Expr1(x, o)
-         ## if not istempref(g):
-             ## o.INCREF(g) 
-         ## li.append(g)    
-      ## newg = New(None,forcenewg)  
-      ## o.Stmt(newg,'=', 'PyTuple_New', len(it[1]))
-      ## for i,g in enumerate(li):
-         ## o.Stmt('PyTuple_SET_ITEM', newg, i, g)
-         ## if g not in g_refs2:
-            ## o.ZeroTemp(g)  
-         ## o.ClsFict(g)
-      ## return newg
     if head == 'GET_ITER':
         ref = Expr1(it[1], o)
         ref2 = New(None,forcenewg)
@@ -15822,16 +15767,10 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
                 o.Stmt(n2, '=', 'PyInt_AsSsize_t', n)
             ref2 = New(None,forcenewg)
             o.Raw('if (', n2, ' <= 0) {')
-##            o +='PyErr_SetString(PyExc_OverflowError, "count of repeat too small");'
-##            o.Raw('goto ', labl, ';')
-##            UseLabl()
             o.Stmt(ref2, '=', 'PyString_FromStringAndSize', 'NULL', 0)
             if istempref(n):
                 o.CLEAR(n)
-##            o.Raw(ref2, ' = ', ('CONST', ''), ';')
-##            o.INCREF(ref2)
             o.Raw('}')    
-##            ref2 = New(None,forcenewg)
             cref = New('charref')
             o.Raw(cref, ' = PyMem_Malloc(', n2, ');')
             n1 = New('Py_ssize_t')
@@ -15871,8 +15810,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Stmt(new, '=', 'PyNumber_Multiply', ref1, ref2)
         o.Cls(ref1, ref2)
         return new
-
-    
         
     if head == 'BUILD_LIST':
       li = []
@@ -15937,9 +15874,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
           v = Expr1(v, o)
           o.Stmt('PyDict_SetItem', newg, k, v)
           o.Cls(k, v)
-        ## for k,v in ((Expr1(x[0], o), Expr1(x[1], o)) for x in it[1]):
-##            o.Stmt('PyDict_SetItem', newg, k, v)
-##         o.Cls(k, v)
       return newg
     if head == 'MK_CLOSURE':
         assert len(it) == 4
@@ -16007,8 +15941,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             if len(it[2][1]) > 0: # or len(co.co_cellvars + co.co_freevars) != 0:
                 o.Stmt(ref1, '=', 'Py2CFunction_New', const_to( co))
                 o.Stmt('Py2CFunction_SetDefaults', ref1, it[2])
-            ## elif all_co[co].simple_cmds:
-                ## o.Stmt(ref1, '=', 'Py2CFunction_New_Simple', const_to( co), '&Py2CFunction_'+it[1]+'_Type')
             else:
                 o.Stmt(ref1, '=', 'Py2CFunction_New', const_to( co))
                     
@@ -16041,9 +15973,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         elif t == Kl_Dict:        
             ref2 = Expr1(it[2], o)
             o.Raw('if((', ref1, ' = PyDict_GetItem(', ref, ', ', ref2, ')) == 0) {')
-##            o.Raw('if(', ref1, '== 0) {')
             tup = New()
-##            o.Raw(tup, ' = PyTuple_Pack(1, ', ref2, ');')
             o.Raw('if (!(', tup, ' = PyTuple_Pack(1, ', ref2, '))) goto ', labl, ';') 
             o.Raw('PyErr_SetObject(PyExc_KeyError, ', tup, ');')
             o.Cls(tup)            
@@ -16096,15 +16026,9 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         ref1 = New(None, forcenewg)
         if t == Kl_Dict:
             ref2 = Expr1(it[2][2], o)
-            ## o.Stmt(ref1, '=', 'PyDict_GetItem', ref, ref2)
-            ## o.Cls(ref, ref2)
             o.Raw('if((', ref1, ' = PyDict_GetItem(', ref, ', ', ref2, ')) == 0) {')
-#            o.Raw(ref1, ' = PyDict_GetItem(', ref, ', ', ref2, ');')
-#            o.Raw('if(', ref1, '== 0) {')
             tup = New()
             o.Raw('if (!(', tup, ' = PyTuple_Pack(1, ', ref2, '))) goto ', labl, ';') 
-            ## o.Raw(tup, ' = PyTuple_Pack(1, ', ref2, ');')
-            ## o.Raw('if (!', tup, ') goto ', labl, ';') 
             o.Raw('PyErr_SetObject(PyExc_KeyError, ', tup, ');')
             o.Cls(tup)            
             o.Raw('goto ', labl, ';')
@@ -16116,10 +16040,8 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             
             return ref1
         if t == Kl_Tuple:
-#            ref2 = Expr1(it[2][2], o)
             o.Stmt(ref1, '=', 'PyTuple_GetItem', ref, it[2][1])
             o.Cls(ref)
-#            o.Cls(ref2)
             return ref1
         elif expand_BINARY_SUBSCR or islist: 
             if not islist:
@@ -16462,6 +16384,10 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         assert len(it) == 3
 #        print it
         return generate_set_compr(it[1],it[2],o, forcenewg)  
+    if head == 'MAP_COMPR':
+        assert len(it) == 3
+#        print it
+        return generate_map_compr(it[1],it[2],o, forcenewg)  
     if head == 'BOOLEAN':
         o2,logic = shortage(generate_logical_expr(it[1]))
         o.extend(o2)
@@ -16479,12 +16405,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
 
     if head in ('_EQ_', '_NEQ_'):
         Fatal('GenExpr', it)
-        ## ref1, ref2 = Expr(o, it[1:3])
-        ## new = New('int', forcenewg)
-        ## op = ('==', '!=')[('_EQ_', '_NEQ_').index(head)]
-        ## o.Stmt(new, '=', ref1, op, ref2)
-        ## o.Cls(ref1, ref2)
-        ## return new
     if head == 'AND_BOOLEAN':
         Fatal('GenExpr', it)
     if head == '1NOT':
@@ -16634,15 +16554,6 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             return ('CONST', None)
 
     if head == 'CALL_CALC_CONST_INDIRECT':
-        ## d_nm = '_Direct_' + it[1]
-        ## ref1 = Expr1(it[2], o)
-        ## ref = New(None, forcenewg)
-        ## o.Raw(ref, ' = InDirect_Call_' + it[1] + '(', ref1, ');') 
-        ## o.Cls(ref1)
-        ## o.Raw('if (', ref, ' == NULL) goto ', labl, ';')
-        ## UseLabl()
-        ## return ref
-
         d_nm = 'codefunc_' + it[1]
         is_const_default = True
         ref = New(None, forcenewg)
@@ -16964,61 +16875,6 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
         o.Cls(ref1, ref2)
         return new
     
-    
-    ## if head in ('!PyNumber_Rshift', '!PyNumber_Lshift'):
-        ## ref1, ref2 = Expr(o, it[1:3])
-        ## if forcenewg is not None:
-            ## new = forcenewg
-        ## else:
-            ## new = New()    
-        ## check = True    
-        ## skip_int = not_int_op(ref1, ref2, it[1], it[2])
-        ## if not skip_int:
-            ## t1 = TypeExpr(it[1])
-            ## t2 = TypeExpr(it[2])
-            ## check = not IsInt(t1) or not IsInt(t2)
-            ## if it[1][0] != 'CONST' and it[2][0] != 'CONST':
-                ## if check:
-                    ## o.Stmt('if (PyInt_CheckExact(', ref1, ') && PyInt_CheckExact(', ref2, ')) {')
-                ## n1 = 'PyInt_AsLong(' + CVar(ref1) + ')'
-                ## n2 = 'PyInt_AsLong(' + CVar(ref2) + ')'
-            ## elif it[1][0] == 'CONST' and it[2][0] != 'CONST' and type(it[1][1]) is int:
-                ## if check:
-                    ## o.Stmt('if (PyInt_CheckExact(', ref2, ')) {')
-                ## n1 = str(it[1][1])
-                ## n2 = 'PyInt_AsLong(' + CVar(ref2) + ')'
-            ## elif it[1][0] != 'CONST' and it[2][0] == 'CONST' and type(it[2][1]) is int:
-                ## if check:
-                    ## o.Stmt('if (PyInt_CheckExact(', ref1, ')) {')
-                ## n1 = 'PyInt_AsLong(' + CVar(ref1) + ')'
-                ## n2 = str(it[2][1])
-            ## else:
-                ## skip_int = True
-        ## op = '???'
-        ## if not skip_int:
-            ## if head == '!PyNumber_Rshift':
-                ## op = '>>'
-            ## elif head == '!PyNumber_Lshift':
-                ## op = '<<'
-            ## else:
-                ## Fatal('What fault ?') 
-            ## o.Raw('if (', n2, ' >= 0) {'       
-            ## o.Raw(new, ' = PyInt_FromLong(', n1, op, n2, ');')
-            ## o.Raw('} else {')
-            ## o.Raw('goto',       
-        ## if check:    
-            ## if not skip_int:
-                ## o.Raw('} else {')
-            ## o.Stmt(new, '=', head[1:], ref1, ref2)
-            ## if not skip_int:
-                ## o.Raw('}')
-        ## else:
-            ## o.Stmt(new, '=', head[1:], ref1, ref2)
-        ## o.Cls(ref1, ref2)
-        ## return new
-    
-    
-    
     arifm = ('!PyNumber_Multiply', '!PyNumber_Divide', '!PyNumber_Add', '!PyNumber_Subtract')
     if head in arifm and TypeExpr(it) == Kl_Float:
         if forcenewg is not None:
@@ -17259,34 +17115,6 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
 # Base part
 #   
     return common_call(head[1:], it, o, typed, forcenewg)
-
-## def to_long(o, ref1, it):
-    ## last = o[-3:]
-    ## del_check = False
-    ## if len(last) > 0:
-        ## che = ('if ( %s == NULL ) goto %s;' % (CVar(ref1), CVar(labl)))
-        ## if last[-1] == che:
-            ## del_check = True
-            ## del last[-1]
-    ## if len(last) > 0:
-        ## beg = CVar(ref1) + ' = PyInt_FromSsize_t ( '
-        ## if last[-1].startswith(beg) and last[-1].endswith(' );'):
-            ## if del_check:
-                ## del o[-1]
-            ## c_expr = o[-1][len(beg):-3]
-            ## del o[-1]
-            ## o.ClsFict(ref1)
-            ## return c_expr 
-        ## beg = CVar(ref1) + ' = PyInt_FromLong('
-        ## if last[-1].startswith(beg) and last[-1].endswith(');'):
-            ## if del_check:
-                ## del o[-1]
-            ## c_expr = o[-1][len(beg):-2]
-            ## del o[-1]
-            ## o.ClsFict(ref1)
-            ## return c_expr
-    ## return None
-
 
 def GenPlusMinus(head,it,o,forcenewg, skip_float):
     if len(it) > 3:
@@ -17623,35 +17451,6 @@ def attempt_direct_builtin(nm_builtin, args, tupl):
     return None
 
 def generate_and_or_jumped_stacked(it, o, prevref, is_and, n):
-##    l_o = len(o)
-    ## if it[0] == '!BOOLEAN' or (it[0] == '!1NOT' and it[1][0] == '!BOOLEAN'):
-        ## if it[0] == '!BOOLEAN':
-            ## iit = it[1]
-        ## elif (it[0] == '!1NOT' and it[1][0] == '!BOOLEAN'):
-            ## iit = it[1][1]
-        ## else:
-            ## Fatal ('', it)   
-        ## o1, int_val = generate_logical_expr(iit)
-        ## o.extend(o1)
-
-        ## assert is_and == True or is_and == False
-        ## or_and = New('int')
-        ## if is_and:    
-            ## o.Stmt(or_and, ' = ', int_val, ';')
-        ## else:    
-            ## o.Stmt(or_and, ' = !', int-val, ';')
-
-        ## i
-        ## if !is_and:    
-            ## o.Stmt(or_and, '=', 'PyObject_Not', prevref)
-
-        ## ref = New(None, forcenewg)
-        ## o.Stmt(int_val, '=', '!', int_val) ## ????????? 
-        ## o.Stmt(ref, '=','PyBool_FromLong', int_val)
-        ## o.Cls(int_val)
-            
-        
-    ## else:
     ref1 = GenExpr(it[0], o, prevref)
 #    if 'PyBool_FromLong' in repr(o[l_o:]):
 #        Fatal('Over bool conversion', it[0], o[l_o:])
@@ -17672,20 +17471,10 @@ def generate_and_or_jumped_stacked(it, o, prevref, is_and, n):
         return ref1
     assert is_and in (True, False)
     or_and = New('int')
-    ## _prevlast1 = ConC(prevref, ' = PyBool_FromLong ( ')
-    ## _prevlast2 = ' );'
-    ## _last = ConC('if ( ', prevref, ' == NULL ) goto ', labl, ';')
 
     _prevlast1_1 = ConC('if ((', prevref, ' = PyBool_FromLong (')
     _prevlast2_1 = ')) == NULL) goto label_0;'
 
-    ## if len(o) >= 2 and o[-1] == _last and \
-       ## o[-2].startswith(_prevlast1) and o[-2].endswith(_prevlast2):
-        ## intlast = o[-2][len(_prevlast1):-3]
-        ## if is_and:    
-            ## o.Raw(or_and, ' = ', intlast, ';')
-        ## else:    
-            ## o.Raw(or_and, ' = !', intlast, ';')
     if len(o) >= 1 and \
        o[-1].startswith(_prevlast1_1) and o[-1].endswith(_prevlast2_1):
         intlast = o[-1][len(_prevlast1_1):-len(_prevlast2_1)]
@@ -18072,7 +17861,6 @@ def generate_consts(cfile):
                 s1 = const_to(c1)
                 s_inc = 'Py_INCREF(' + s1 + ');'
                 s2 = const_to(c)
-#                s_set = 'if(PyTuple_SetItem(' + s2 + ', ' + str(j) + ', ' + s1 + ')!= 0) {printf(\"line code %d\\n\", __LINE__);}'
                 s_set = 'PyTuple_SetItem(' + s2 + ', ' + str(j) + ', ' + s1 + ');'
                 print_to(cfile, s_inc)
                 print_to(cfile, '__ob = (' +s2 +')->ob_refcnt;')
@@ -18153,17 +17941,6 @@ def const_type(c):
         return tuple([const_type(x) for x in c])
     if type(c) in (float, complex):
         return type(c) , repr(c)
-## ## positive and negative zero !!!
-## ## veri hindy hook :-(
-        ## if '-' in str(c):
-            ## return (type(c), -1)
-        ## return (type(c), 1)
-    ## if type(c) == complex and c == 0j:
-## ## positive and negative zero !!!
-## ## veri hindy hook :-(
-        ## if '-' in str(c):
-            ## return (type(c), -1)
-        ## return (type(c), 1)
     return type(c)
  
 def pregenerate_code_objects():
@@ -18193,17 +17970,6 @@ def calc_const_to(k):
     return ('CALC_CONST', k)
             
 if __name__ == "__main__":
-    ## _c_2ctest = None
- 
-    ## if type(main.func_code) is types.CodeType: 
-        ## try:
-            ## import _c_2ctest
-        ## except:
-            ## pass
-        ## if _c_2ctest is not None:   
-            ## print 'Run compiled...' 
-            ## _c_2ctest.main()
-            ## exit(0)
     print 'Run uncompiled...'
     main ()
 
