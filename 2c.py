@@ -45,6 +45,15 @@ import gc
 import os
 import time
 
+## impo = __import__
+
+## def __import__(*a):
+    ## if len(a) > 1:
+        ## print '__imp__', a[0]
+    ## else:    
+        ## print '__imp__', a
+    ## return impo(*a)
+
 d_built = {'ArithmeticError': ArithmeticError,
 'AssertionError': AssertionError,
 'AttributeError': AttributeError,
@@ -187,6 +196,8 @@ d_built = {'ArithmeticError': ArithmeticError,
 'vars': vars,
 'xrange': xrange,
 'zip': zip}
+if tuple(sys.version_info)[:2] == (2,7):
+    d_built['memoryview'] = memoryview
 d_built_inv = dict([(y,x) for x,y in d_built.iteritems()])
 
 import math
@@ -217,7 +228,7 @@ tags_one_step_expr = ('CONST', 'FAST', 'BUILTIN', 'TYPED_TEMP', \
 
 TRUE = ('CONST', True) #True #cmd2mem(('LOAD_CONST', True))
 
-a = b = c = d = e = f = g = h_ = i_ = j_ = k_ = l_ = None
+pos__a = pos__b = pos__c = pos__d = pos__e = pos__f = pos__g = pos__h = pos__i = pos__j = pos__k = pos__l = None
 
 call = ('CALL_FUNCTION_VAR', 'CALL_FUNCTION_KW', 'CALL_FUNCTION_VAR_KW', 'CALL_FUNCTION')
 
@@ -1460,6 +1471,9 @@ def post_disassemble():
     for x, co, cmds in seq:
         current_co = co
         cmds[1] = tree_pass(cmds[1], collect_set_attr, None, cmds[0][1]) 
+    for x, co, cmds in seq:
+        current_co = co
+        cmds[1] = tree_pass(cmds[1], collect_set_attr, None, cmds[0][1]) 
 
     for k1, v1 in self_attr_type.iteritems():
         v = v1.keys()
@@ -2303,24 +2317,24 @@ def cmds_join(i,cmds):
         return
     
 def print_pr(cmds):    
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
-    prin (1,a, cmds)
-    prin (2,b, cmds)
-    prin (3,c, cmds)
-    prin (4,d, cmds)
-    prin (5,e, cmds)
-    prin (6,f, cmds)        
-    prin (7,g, cmds) 
-    prin (8,h_, cmds)        
-    prin (9,i_, cmds) 
-    prin (10,j_, cmds) 
-    prin (11,k_, cmds) 
-    prin (12,l_, cmds) 
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
+    prin (1,pos__a, cmds)
+    prin (2,pos__b, cmds)
+    prin (3,pos__c, cmds)
+    prin (4,pos__d, cmds)
+    prin (5,pos__e, cmds)
+    prin (6,pos__f, cmds)        
+    prin (7,pos__g, cmds) 
+    prin (8,pos__h, cmds)        
+    prin (9,pos__i, cmds) 
+    prin (10,pos__j, cmds) 
+    prin (11,pos__k, cmds) 
+    prin (12,pos__l, cmds) 
     print >>out, ''     
                             
 def half_recompile(cmds, co):
     global debug
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
     i = 0
     totemp = [(None,)] * 12
     oldi = -1
@@ -2368,7 +2382,7 @@ def half_recompile(cmds, co):
                 tempor = cmds[i:i+12]
                 while len(tempor) < 12:
                     tempor.append((None,))
-                a,b,c,d,e,f,g,h_,i_,j_,k_,l_ = tempor
+                pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l = tempor
                 print >>out, '!!!!!!',i, '!!!!!!'
                 print_pr(cmds)
             _len = len(cmds)           
@@ -2382,7 +2396,7 @@ def half_recompile(cmds, co):
         tempor = cmds[i:i+12]
         if len(tempor) < 12:
             tempor = (tempor + totemp)[:12]
-        a,b,c,d,e,f,g,h_,i_,j_,k_,l_ = tempor
+        pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l = tempor
         if debug == True and not only_matched:
             if bingo:
                 print >>out, '*****',i, '*****'
@@ -2391,429 +2405,429 @@ def half_recompile(cmds, co):
             print_pr(cmds)
 
         begin_cmp()
-        if type(a) is tuple and len(a) >= 1:
-            if a[0] is not None and a[0][0:4] == 'JUMP' and\
-            a[0] != 'JUMP_IF_NOT_EXCEPTION_POP':
+        if type(pos__a) is tuple and len(pos__a) >= 1:
+            if pos__a[0] is not None and pos__a[0][0:4] == 'JUMP' and\
+            pos__a[0] != 'JUMP_IF_NOT_EXCEPTION_POP':
                 changed_jump = process_jump(cmds,i,added_pass)
                 if changed_jump:
                     continue
-            if a[0] == 'J_FOR_ITER':
-                if b[0] in set_any:
-                    cmds[i:i+2] = [('J_LOOP_VARS', a[1], (b,))]
+            if pos__a[0] == 'J_FOR_ITER':
+                if pos__b[0] in set_any:
+                    cmds[i:i+2] = [('J_LOOP_VARS', pos__a[1], (pos__b,))]
                     continue
-                if islineblock(b) and c[0] in set_any:
-                    cmds[i:i+3] = [('J_LOOP_VARS', a[1], (c,))]
+                if islineblock(pos__b) and pos__c[0] in set_any:
+                    cmds[i:i+3] = [('J_LOOP_VARS', pos__a[1], (pos__c,))]
                     continue
-                if b[0] == 'UNPACK_SEQ_AND_STORE' and b[1] == 0:
-                    b2 = b[2]
+                if pos__b[0] == 'UNPACK_SEQ_AND_STORE' and pos__b[1] == 0:
+                    b2 = pos__b[2]
                     if len(b2) == 1:
                         b2 += (None,)
-                    cmds[i:i+2] = [('J_LOOP_VARS', a[1], b2)]
+                    cmds[i:i+2] = [('J_LOOP_VARS', pos__a[1], b2)]
                     continue
-            if a[0] == '.:':
+            if pos__a[0] == '.:':
                 if SCmp(cmds, i, ((':', 4), 'J_LOOP_VARS', '>', \
                                 'LIST_APPEND', 'JUMP', '.:')) and \
-                                a[1] != b[1] and f[0] != b[1] and len(d) == 2:  
-                    rpl(cmds, [a, ('J_BASE_LIST_COMPR', b[1], (cmd2mem(c),), (b[2], None, ())),f]                )
+                                pos__a[1] != pos__b[1] and pos__f[0] != pos__b[1] and len(pos__d) == 2:  
+                    rpl(cmds, [pos__a, ('J_BASE_LIST_COMPR', pos__b[1], (cmd2mem(pos__c),), (pos__b[2], None, ())),pos__f]                )
                     continue    
                 if SCmp(cmds, i, ((':', 4), 'J_LOOP_VARS', '>', \
                                 ('SET_ADD', 2), 'JUMP', '.:')) and \
-                                a[1] != b[1] and f[0] != b[1] :  
-                    rpl(cmds, [a, ('J_BASE_SET_COMPR', b[1], (cmd2mem(c),), (b[2], None, ())),f]                )
+                                pos__a[1] != pos__b[1] and pos__f[0] != pos__b[1] :  
+                    rpl(cmds, [pos__a, ('J_BASE_SET_COMPR', pos__b[1], (cmd2mem(pos__c),), (pos__b[2], None, ())),pos__f]                )
                     continue    
                 if SCmp(cmds, i, ((':', 4), 'J_LOOP_VARS', '>', '>', \
                                 ('MAP_ADD', 2), 'JUMP', '.:')) and \
-                                a[1] != b[1] and g[0] != b[1] :  
-                    rpl(cmds, [a, ('J_BASE_MAP_COMPR', b[1], (cmd2mem(d),cmd2mem(c),), (b[2], None, ())),g]   )
+                                pos__a[1] != pos__b[1] and pos__g[0] != pos__b[1] :  
+                    rpl(cmds, [pos__a, ('J_BASE_MAP_COMPR', pos__b[1], (cmd2mem(pos__d),cmd2mem(pos__c),), (pos__b[2], None, ())),pos__g]   )
                     continue    
                 if SCmp(cmds, i, ((':', 5), 'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP', '>', \
                                 'LIST_APPEND', 'JUMP', '.:')) and \
-                                a[1] != b[1] and g[0] != b[1] and len(e) == 2:  
-                    rpl(cmds, [a, ('J_BASE_LIST_COMPR', b[1], (cmd2mem(d),), (b[2], None, (Not(c[2]),))),g]                )
+                                pos__a[1] != pos__b[1] and pos__g[0] != pos__b[1] and len(pos__e) == 2:  
+                    rpl(cmds, [pos__a, ('J_BASE_LIST_COMPR', pos__b[1], (cmd2mem(pos__d),), (pos__b[2], None, (Not(pos__c[2]),))),pos__g]                )
                     continue    
                 if SCmp(cmds, i, ((':', 5), 'J_LOOP_VARS', 'JUMP_IF2_FALSE_POP', '>', \
                                 'LIST_APPEND', 'JUMP', '.:')) and \
-                                a[1] != b[1] and g[0] != b[1] and len(e) == 2:  
-                    rpl(cmds, [a, ('J_BASE_LIST_COMPR', b[1], (cmd2mem(d),), (b[2], None, (c[2],))),g]                )
+                                pos__a[1] != pos__b[1] and pos__g[0] != pos__b[1] and len(pos__e) == 2:  
+                    rpl(cmds, [pos__a, ('J_BASE_LIST_COMPR', pos__b[1], (cmd2mem(pos__d),), (pos__b[2], None, (pos__c[2],))),pos__g]                )
                     continue    
                 
-            if a[0] == '.L':
-                if b[0] in jump and len(b) == 2:
-                    cmds[i:i+2] = [(b[0], b[1], a[1])]
+            if pos__a[0] == '.L':
+                if pos__b[0] in jump and len(pos__b) == 2:
+                    cmds[i:i+2] = [(pos__b[0], pos__b[1], pos__a[1])]
                     continue
-                if b[0] == 'J_SETUP_LOOP' and len(b) == 2:
-                    cmds[i:i+2] = [('J_SETUP_LOOP', b[1], a[1])]
+                if pos__b[0] == 'J_SETUP_LOOP' and len(pos__b) == 2:
+                    cmds[i:i+2] = [('J_SETUP_LOOP', pos__b[1], pos__a[1])]
                     continue
-                if b[0] == '.L':
-                    cmds[i:i+2] = [b]
+                if pos__b[0] == '.L':
+                    cmds[i:i+2] = [pos__b]
                     continue
-                if b[0] == 'DUP_TOP' and is_cmdmem(c) and \
-                    len(d) == 2 and d[0] == 'COMPARE_OP' and d[1] == 'exception match':
-                    cmds[i:i+4] = [('CHECK_EXCEPTION', cmd2mem(c), a[1])]
+                if pos__b[0] == 'DUP_TOP' and is_cmdmem(pos__c) and \
+                    len(pos__d) == 2 and pos__d[0] == 'COMPARE_OP' and pos__d[1] == 'exception match':
+                    cmds[i:i+4] = [('CHECK_EXCEPTION', cmd2mem(pos__c), pos__a[1])]
                     continue  
     
-            if a[0] == 'DELETE_FAST' and a[1][0:2] == '_[':
-                cmds[i] = (')END_LIST_COMPR', ('FAST', a[1]))
+            if pos__a[0] == 'DELETE_FAST' and pos__a[1][0:2] == '_[':
+                cmds[i] = (')END_LIST_COMPR', ('FAST', pos__a[1]))
                 continue
-            if a[0] == 'DELETE_NAME' and a[1][0:2] == '_[':
-                cmds[i] = (')END_LIST_COMPR', ('NAME', a[1]))
+            if pos__a[0] == 'DELETE_NAME' and pos__a[1][0:2] == '_[':
+                cmds[i] = (')END_LIST_COMPR', ('NAME', pos__a[1]))
                 continue
-            if a[0] == 'UNPACK_SEQUENCE' and len(a) == 2 and a[1] > 0 and b[0] in set_any:
-                cmds[i] = ('UNPACK_SEQ_AND_STORE', a[1], ())
+            if pos__a[0] == 'UNPACK_SEQUENCE' and len(pos__a) == 2 and pos__a[1] > 0 and pos__b[0] in set_any:
+                cmds[i] = ('UNPACK_SEQ_AND_STORE', pos__a[1], ())
                 continue
-            if a[0] == 'UNPACK_SEQUENCE' and len(a) == 2 and a[1] > 0 and b[0] == 'UNPACK_SEQ_AND_STORE':
-                cmds[i] = ('UNPACK_SEQ_AND_STORE', a[1], ())
+            if pos__a[0] == 'UNPACK_SEQUENCE' and len(pos__a) == 2 and pos__a[1] > 0 and pos__b[0] == 'UNPACK_SEQ_AND_STORE':
+                cmds[i] = ('UNPACK_SEQ_AND_STORE', pos__a[1], ())
                 continue
-            if a[0] == 'UNPACK_SEQ_AND_STORE':
-                if a[1] == 0:
-                    cmds[i] = ('SET_VARS', a[2])
+            if pos__a[0] == 'UNPACK_SEQ_AND_STORE':
+                if pos__a[1] == 0:
+                    cmds[i] = ('SET_VARS', pos__a[2])
                     continue
-                if a[1] > 0 and b[0] == '.L' and c[0] in set_any:
-                    cmds[i:i+3] = [('UNPACK_SEQ_AND_STORE', a[1]-1, a[2] + (c,))]
+                if pos__a[1] > 0 and pos__b[0] == '.L' and pos__c[0] in set_any:
+                    cmds[i:i+3] = [('UNPACK_SEQ_AND_STORE', pos__a[1]-1, pos__a[2] + (pos__c,))]
                     continue
-                if a[1] > 0 and b[0] in set_any:
-                    cmds[i:i+2] = [('UNPACK_SEQ_AND_STORE', a[1]-1, a[2] + (b,))]
+                if pos__a[1] > 0 and pos__b[0] in set_any:
+                    cmds[i:i+2] = [('UNPACK_SEQ_AND_STORE', pos__a[1]-1, pos__a[2] + (pos__b,))]
                     continue
-                if a[1] > 0 and b[0] == 'UNPACK_SEQ_AND_STORE' and b[1] == 0 :
-                    cmds[i:i+2] = [('UNPACK_SEQ_AND_STORE', a[1]-1, a[2] + (b,))]
+                if pos__a[1] > 0 and pos__b[0] == 'UNPACK_SEQ_AND_STORE' and pos__b[1] == 0 :
+                    cmds[i:i+2] = [('UNPACK_SEQ_AND_STORE', pos__a[1]-1, pos__a[2] + (pos__b,))]
                     continue
-            if a[0] == 'LOAD_CODEFUNC' and b[0] == 'MAKE_FUNCTION':
-                cmds[i:i+2] = [('MK_FUNK', a[1], b[1], ())]
+            if pos__a[0] == 'LOAD_CODEFUNC' and pos__b[0] == 'MAKE_FUNCTION':
+                cmds[i:i+2] = [('MK_FUNK', pos__a[1], pos__b[1], ())]
                 continue
-            if a[0] == 'MK_FUNK' and a[2] == 0:
-                cmds[i:i+1] = [('!MK_FUNK', a[1], TupleFromArgs(a[3]))]
+            if pos__a[0] == 'MK_FUNK' and pos__a[2] == 0:
+                cmds[i:i+1] = [('!MK_FUNK', pos__a[1], TupleFromArgs(pos__a[3]))]
                 continue
-            if a[0] == 'MK_CLOSURE' and a[2] == 0:
-                cmds[i:i+1] = [('!MK_CLOSURE', a[1], a[3], TupleFromArgs(a[4]))]
+            if pos__a[0] == 'MK_CLOSURE' and pos__a[2] == 0:
+                cmds[i:i+1] = [('!MK_CLOSURE', pos__a[1], pos__a[3], TupleFromArgs(pos__a[4]))]
                 continue
-            if a[0] == 'IMPORT_FROM' and b[0] in set_any:
-                cmds[i:i+2] = [('IMPORT_AND_STORE_AS', (a[1],), (b,))] 
+            if pos__a[0] == 'IMPORT_FROM' and pos__b[0] in set_any:
+                cmds[i:i+2] = [('IMPORT_AND_STORE_AS', (pos__a[1],), (pos__b,))] 
                 continue
                 continue
-            if a[0] == 'IMPORT_AND_STORE_AS' and b[0] == 'IMPORT_AND_STORE_AS':
-                cmds[i:i+2] = [('IMPORT_AND_STORE_AS', a[1] + b[1], a[2] + b[2])] 
+            if pos__a[0] == 'IMPORT_AND_STORE_AS' and pos__b[0] == 'IMPORT_AND_STORE_AS':
+                cmds[i:i+2] = [('IMPORT_AND_STORE_AS', pos__a[1] + pos__b[1], pos__a[2] + pos__b[2])] 
                 continue
-            if a[0] == '!IMPORT_NAME' and b[0] == 'IMPORT_AND_STORE_AS' and c[0] == 'POP_TOP' and a[3][1] == b[1]:
-                cmds[i:i+3] = [('IMPORT_FROM_AS', a[1], a[2], a[3], b[2])]
+            if pos__a[0] == '!IMPORT_NAME' and pos__b[0] == 'IMPORT_AND_STORE_AS' and pos__c[0] == 'POP_TOP' and pos__a[3][1] == pos__b[1]:
+                cmds[i:i+3] = [('IMPORT_FROM_AS', pos__a[1], pos__a[2], pos__a[3], pos__b[2])]
                 continue    
     # LOAD_CLOSURE  and LOAD_DEREF marked as 'pure' ? or not ?        
-            if a[0] in ('LOAD_GLOBAL', 'LOAD_NAME'):
-                if a[1] in ('True', 'False', 'None'):
-                    if a[1] == 'True':
+            if pos__a[0] in ('LOAD_GLOBAL', 'LOAD_NAME'):
+                if pos__a[1] in ('True', 'False', 'None'):
+                    if pos__a[1] == 'True':
                         cmds[i] = ('LOAD_CONST', True)
-                    elif a[1] == 'False':
+                    elif pos__a[1] == 'False':
                         cmds[i] = ('LOAD_CONST', False)
-                    elif a[1] == 'None':
+                    elif pos__a[1] == 'None':
                         cmds[i] = ('LOAD_CONST', None)
                     continue
-                if not redefined_all and a[1] in d_built and \
-                (a[1][0:2] != '__' or a[1] in ('__import__',) )and \
-                    not  a[1] in redefined_builtin:
-                        cmds[i] = ('!LOAD_BUILTIN', a[1])
+                if not redefined_all and pos__a[1] in d_built and \
+                (pos__a[1][0:2] != '__' or pos__a[1] in ('__import__',) )and \
+                    not  pos__a[1] in redefined_builtin:
+                        cmds[i] = ('!LOAD_BUILTIN', pos__a[1])
                         continue
-                if a[0] == 'LOAD_GLOBAL':
-                    cmds[i] = ('!LOAD_GLOBAL', a[1])
+                if pos__a[0] == 'LOAD_GLOBAL':
+                    cmds[i] = ('!LOAD_GLOBAL', pos__a[1])
                     continue
-                if a[0] == 'LOAD_NAME':
-                    cmds[i] = ('!LOAD_NAME', a[1])
+                if pos__a[0] == 'LOAD_NAME':
+                    cmds[i] = ('!LOAD_NAME', pos__a[1])
                     continue
-            if a[0] == 'LOAD_DEREF':
-                cmds[i] = ('!LOAD_DEREF', a[1])
+            if pos__a[0] == 'LOAD_DEREF':
+                cmds[i] = ('!LOAD_DEREF', pos__a[1])
                 continue
-            if a[0] == 'BUILD_LIST' and a[1] == 0:
-                if len(a) == 3:
-                    cmds[i] = ('!BUILD_LIST', a[2])
+            if pos__a[0] == 'BUILD_LIST' and pos__a[1] == 0:
+                if len(pos__a) == 3:
+                    cmds[i] = ('!BUILD_LIST', pos__a[2])
                 else:
                     cmds[i] = ('!BUILD_LIST', ())
                 continue
-            if a == ('!BUILD_LIST', ()) and b[0] == '!GET_ITER':
+            if pos__a == ('!BUILD_LIST', ()) and pos__b[0] == '!GET_ITER':
                 changed_list_compr = process_list_compr_2(cmds,i,added_pass)
                 if changed_list_compr:
                     continue
                 
-            if a[0] == 'BUILD_TUPLE' and a[1] == 0:
-                if len(a) == 3:
-                    cmds[i] = TupleFromArgs(a[2])
+            if pos__a[0] == 'BUILD_TUPLE' and pos__a[1] == 0:
+                if len(pos__a) == 3:
+                    cmds[i] = TupleFromArgs(pos__a[2])
                 else:
                     cmds[i] = ('CONST', ())
                 continue
-            if a[0] == 'BUILD_SET':
-                if a[1] == 0 and len(a) == 3 :
-                    cmds[i] = ('!BUILD_SET', a[2])
+            if pos__a[0] == 'BUILD_SET':
+                if pos__a[1] == 0 and len(pos__a) == 3 :
+                    cmds[i] = ('!BUILD_SET', pos__a[2])
                     continue            
-                if a[1] == 0 and len(a) == 2:
+                if pos__a[1] == 0 and len(pos__a) == 2:
                     cmds[i] = ('!BUILD_SET', ())
                     continue         
 
-            if a == ('!BUILD_SET', ()) and b == ('LOAD_FAST', '.0') and \
-               c[0] == 'J_BASE_SET_COMPR' and d == ('.:', c[1]):
-                if c[3][1] is None:
-                    if c[3][2] == ():
-                        cmds[i:i+4] = [('!SET_COMPR', c[2], (c[3][0], (cmd2mem(b),), None))]
+            if pos__a == ('!BUILD_SET', ()) and pos__b == ('LOAD_FAST', '.0') and \
+               pos__c[0] == 'J_BASE_SET_COMPR' and pos__d == ('.:', pos__c[1]):
+                if pos__c[3][1] is None:
+                    if pos__c[3][2] == ():
+                        cmds[i:i+4] = [('!SET_COMPR', pos__c[2], (pos__c[3][0], (cmd2mem(pos__b),), None))]
                         continue 
                     else:
-                        cmds[i:i+4] = [('!SET_COMPR', c[2], (c[3][0], (cmd2mem(b),), c[3][2]))]
+                        cmds[i:i+4] = [('!SET_COMPR', pos__c[2], (pos__c[3][0], (cmd2mem(pos__b),), pos__c[3][2]))]
                         continue   
                     
-            if a == ('!PyDict_New',) and b == ('LOAD_FAST', '.0') and \
-               c[0] == 'J_BASE_MAP_COMPR' and d == ('.:', c[1]):
-                if c[3][1] is None:
-                    if c[3][2] == ():
-                        cmds[i:i+4] = [('!MAP_COMPR', c[2], (c[3][0], (cmd2mem(b),), None))]
+            if pos__a == ('!PyDict_New',) and pos__b == ('LOAD_FAST', '.0') and \
+               pos__c[0] == 'J_BASE_MAP_COMPR' and pos__d == ('.:', pos__c[1]):
+                if pos__c[3][1] is None:
+                    if pos__c[3][2] == ():
+                        cmds[i:i+4] = [('!MAP_COMPR', pos__c[2], (pos__c[3][0], (cmd2mem(pos__b),), None))]
                         continue 
                     else:
-                        cmds[i:i+4] = [('!MAP_COMPR', c[2], (c[3][0], (cmd2mem(b),), c[3][2]))]
+                        cmds[i:i+4] = [('!MAP_COMPR', pos__c[2], (pos__c[3][0], (cmd2mem(pos__b),), pos__c[3][2]))]
                         continue   
 
                      
-            if a[0] == 'BUILD_MAP':
-                if a[1] == 0 and len(a) == 2:
+            if pos__a[0] == 'BUILD_MAP':
+                if pos__a[1] == 0 and len(pos__a) == 2:
                     cmds[i] = ('!PyDict_New',)
                     continue
-                if a[1] > 0 and len(a) == 2:
-                    cmds[i] = ('BUILD_MAP', a[1], ())
+                if pos__a[1] > 0 and len(pos__a) == 2:
+                    cmds[i] = ('BUILD_MAP', pos__a[1], ())
                     continue
-                if a[1] > 0 and len(a) == 3 and b[0] == 'STORE_MAP':
-                    cmds[i:i+2] = [('BUILD_MAP', a[1]-1, a[2] + ((b[1], b[2]),))]
+                if pos__a[1] > 0 and len(pos__a) == 3 and pos__b[0] == 'STORE_MAP':
+                    cmds[i:i+2] = [('BUILD_MAP', pos__a[1]-1, pos__a[2] + ((pos__b[1], pos__b[2]),))]
                     continue
-                if a[1] == 0 and len(a) == 3 :
-                    cmds[i] = ('!BUILD_MAP', a[2])
+                if pos__a[1] == 0 and len(pos__a) == 3 :
+                    cmds[i] = ('!BUILD_MAP', pos__a[2])
                     continue
-                if a[1] > 0 and len(a) == 3 and b[0] == '.L':
-                    cmds[i:i+2] = [a]
+                if pos__a[1] > 0 and len(pos__a) == 3 and pos__b[0] == '.L':
+                    cmds[i:i+2] = [pos__a]
                     continue  
-            if a[0] == 'YIELD_VALUE' and len(a) == 2 and b[0] == 'POP_TOP':
-                cmds[i:i+2] = [('YIELD_STMT', a[1])]
+            if pos__a[0] == 'YIELD_VALUE' and len(pos__a) == 2 and pos__b[0] == 'POP_TOP':
+                cmds[i:i+2] = [('YIELD_STMT', pos__a[1])]
                 continue
-            if a[0] == 'LOAD_LOCALS' and b[0] == 'RETURN_VALUE' and len(b) == 1:
-                cmds[i:i+2] = [(b[0], ('f->f_locals',))]
+            if pos__a[0] == 'LOAD_LOCALS' and pos__b[0] == 'RETURN_VALUE' and len(pos__b) == 1:
+                cmds[i:i+2] = [(pos__b[0], ('f->f_locals',))]
                 continue
-            if a[0] == 'RAISE_VARARGS' and a[1] == 0 and b[0] == 'POP_TOP':
-                cmds[i:i+2] = [('RAISE_VARARGS_STMT',) + a[1:]]
+            if pos__a[0] == 'RAISE_VARARGS' and pos__a[1] == 0 and pos__b[0] == 'POP_TOP':
+                cmds[i:i+2] = [('RAISE_VARARGS_STMT',) + pos__a[1:]]
                 continue            
-            if a[0] == '.:':
-                if CntJump(a[1], cmds) == 0:
+            if pos__a[0] == '.:':
+                if CntJump(pos__a[1], cmds) == 0:
                     del cmds[i]
                     continue
-                if b[0] == 'J_LOOP_VARS' and c[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and\
-                        c[1] == a[1] and isretblock(d) and e[0] == '.:' and b[1] == e[1]:
-                    cmds[i:i+5] = [a,b,[('(IF',) + c[2:], d, (')ENDIF',)],('JUMP_CONTINUE', a[1]),e]
+                if pos__b[0] == 'J_LOOP_VARS' and pos__c[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and\
+                        pos__c[1] == pos__a[1] and isretblock(pos__d) and pos__e[0] == '.:' and pos__b[1] == pos__e[1]:
+                    cmds[i:i+5] = [pos__a,pos__b,[('(IF',) + pos__c[2:], pos__d, (')ENDIF',)],('JUMP_CONTINUE', pos__a[1]),pos__e]
                     continue
-                if b[0] == 'J_LOOP_VARS' and c[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and\
-                        c[1] == a[1] and isblock(d) and e[0] == '.:' and b[1] == e[1]:
-                    cmds[i:i+5] = [a,b,[('(IF',) + c[2:], d, (')(ELSE',), [('CONTINUE',)],(')ENDIF',)],e]
+                if pos__b[0] == 'J_LOOP_VARS' and pos__c[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and\
+                        pos__c[1] == pos__a[1] and isblock(pos__d) and pos__e[0] == '.:' and pos__b[1] == pos__e[1]:
+                    cmds[i:i+5] = [pos__a,pos__b,[('(IF',) + pos__c[2:], pos__d, (')(ELSE',), [('CONTINUE',)],(')ENDIF',)],pos__e]
                     continue
                 if  SCmp(cmds,i, ('.:', '.:')):
                     for iii in range(len(cmds)):
-                        if cmds[iii][0][0] == 'J' and cmds[iii][1] == a[1]:
+                        if cmds[iii][0][0] == 'J' and cmds[iii][1] == pos__a[1]:
                             li = list(cmds[iii])
-                            li[1] = b[1]
+                            li[1] = pos__b[1]
                             cmds[iii] = tuple(li)
                     del cmds[i]
                     continue        
     
-            if a[0] == 'DUP_TOP' and is_cmdmem(b) and \
-            len(c) == 2 and c[0] == 'COMPARE_OP' and c[1] == 'exception match':
-                cmds[i:i+3] = [('CHECK_EXCEPTION', cmd2mem(b))]
+            if pos__a[0] == 'DUP_TOP' and is_cmdmem(pos__b) and \
+            len(pos__c) == 2 and pos__c[0] == 'COMPARE_OP' and pos__c[1] == 'exception match':
+                cmds[i:i+3] = [('CHECK_EXCEPTION', cmd2mem(pos__b))]
                 continue  
-            if a[0] == 'CHECK_EXCEPTION':
-                if b[0] == 'JUMP_IF_FALSE_POP' and\
-                c[0] == 'POP_TOP3' :
-                    cmds[i:i+3] = [('JUMP_IF_NOT_EXCEPTION_POP', b[1], a[1:],())]
+            if pos__a[0] == 'CHECK_EXCEPTION':
+                if pos__b[0] == 'JUMP_IF_FALSE_POP' and\
+                pos__c[0] == 'POP_TOP3' :
+                    cmds[i:i+3] = [('JUMP_IF_NOT_EXCEPTION_POP', pos__b[1], pos__a[1:],())]
                     continue
-                if b[0] == 'JUMP_IF_FALSE_POP' and\
-                c[0] == 'POP_TOP' and d[0] in set_any and\
-                e[0] == 'POP_TOP':
-                    cmds[i:i+5] = [('JUMP_IF_NOT_EXCEPTION_POP', b[1], a[1:], (d,))]
+                if pos__b[0] == 'JUMP_IF_FALSE_POP' and\
+                pos__c[0] == 'POP_TOP' and pos__d[0] in set_any and\
+                pos__e[0] == 'POP_TOP':
+                    cmds[i:i+5] = [('JUMP_IF_NOT_EXCEPTION_POP', pos__b[1], pos__a[1:], (pos__d,))]
                     continue
-                if b[0] == 'JUMP_IF_FALSE_POP' and\
-                c[0] == 'POP_TOP' and d[0] in ('UNPACK_SEQ_AND_STORE',) and d[1] == 0 and\
-                e[0] == 'POP_TOP':
-                    cmds[i:i+5] = [('JUMP_IF_NOT_EXCEPTION_POP', b[1], a[1:], d[:])]
+                if pos__b[0] == 'JUMP_IF_FALSE_POP' and\
+                pos__c[0] == 'POP_TOP' and pos__d[0] in ('UNPACK_SEQ_AND_STORE',) and pos__d[1] == 0 and\
+                pos__e[0] == 'POP_TOP':
+                    cmds[i:i+5] = [('JUMP_IF_NOT_EXCEPTION_POP', pos__b[1], pos__a[1:], pos__d[:])]
                     continue
-            if a[0] == 'POP_TOP' and b[0] == 'POP_TOP' and c[0] == 'POP_TOP':
+            if pos__a[0] == 'POP_TOP' and pos__b[0] == 'POP_TOP' and pos__c[0] == 'POP_TOP':
                 cmds[i:i+3] = [('POP_TOP3',)]
                 continue    
-            if a[0] == '!GET_ITER':
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] in ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE') and\
-                    e[0] == 'PyList_Append' and \
-                    f[0] in ('JUMP', 'JUMP_CONTINUE') and\
-                    g[0] == '.:'and\
-                    h_[0] == ')END_LIST_COMPR':
-                        cmds[i:i+8] = [('BASE_LIST_COMPR', e[2:], (c[2], a[1:], (d[2],))),g,h_] # vars in for, iter in fors, condidion 
+            if pos__a[0] == '!GET_ITER':
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] in ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE') and\
+                    pos__e[0] == 'PyList_Append' and \
+                    pos__f[0] in ('JUMP', 'JUMP_CONTINUE') and\
+                    pos__g[0] == '.:'and\
+                    pos__h[0] == ')END_LIST_COMPR':
+                        cmds[i:i+8] = [('BASE_LIST_COMPR', pos__e[2:], (pos__c[2], pos__a[1:], (pos__d[2],))),pos__g,pos__h] # vars in for, iter in fors, condidion 
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] in ('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP_CONTINUE') and\
-                    e[0] == 'PyList_Append' and \
-                    f[0] in ('JUMP', 'JUMP_CONTINUE') and\
-                    g[0] == '.:'and\
-                    h_[0] == ')END_LIST_COMPR':
-                        cmds[i:i+8] = [('BASE_LIST_COMPR', e[2:], (c[2], a[1:], (Not(d[2]),))),g,h_] # vars in for, iter in fors, condidion 
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] in ('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP_CONTINUE') and\
+                    pos__e[0] == 'PyList_Append' and \
+                    pos__f[0] in ('JUMP', 'JUMP_CONTINUE') and\
+                    pos__g[0] == '.:'and\
+                    pos__h[0] == ')END_LIST_COMPR':
+                        cmds[i:i+8] = [('BASE_LIST_COMPR', pos__e[2:], (pos__c[2], pos__a[1:], (Not(pos__d[2]),))),pos__g,pos__h] # vars in for, iter in fors, condidion 
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] == 'PyList_Append' and \
-                    e[0] in ('JUMP', 'JUMP_CONTINUE') and\
-                    f[0] == '.:'and\
-                    g[0] == ')END_LIST_COMPR':
-                        cmds[i:i+7] = [('BASE_LIST_COMPR', d[2:], (c[2], a[1:], None)),f,g] # vars in for, iter in fors, condidion 
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] == 'PyList_Append' and \
+                    pos__e[0] in ('JUMP', 'JUMP_CONTINUE') and\
+                    pos__f[0] == '.:'and\
+                    pos__g[0] == ')END_LIST_COMPR':
+                        cmds[i:i+7] = [('BASE_LIST_COMPR', pos__d[2:], (pos__c[2], pos__a[1:], None)),pos__f,pos__g] # vars in for, iter in fors, condidion 
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] in ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE') and\
-                    e[0] == 'BASE_LIST_COMPR' and\
-                    f[0] == '.:' and \
-                    g[0] == ')END_LIST_COMPR':
-                        cmds[i:i+7] = [('BASE_LIST_COMPR', e[1], (c[2], a[1:], (d[2],)) +e[2]),f,g]
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] in ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE') and\
+                    pos__e[0] == 'BASE_LIST_COMPR' and\
+                    pos__f[0] == '.:' and \
+                    pos__g[0] == ')END_LIST_COMPR':
+                        cmds[i:i+7] = [('BASE_LIST_COMPR', pos__e[1], (pos__c[2], pos__a[1:], (pos__d[2],)) +pos__e[2]),pos__f,pos__g]
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] == 'JUMP_IF2_TRUE_POP' and\
-                    e[0] == 'BASE_LIST_COMPR' and\
-                    f[0] == '.:' and \
-                    g[0] == ')END_LIST_COMPR':
-                        cmds[i:i+7] = [('BASE_LIST_COMPR', e[1], (c[2], a[1:], (d[2],)) +e[2]),f,g]
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] == 'JUMP_IF2_TRUE_POP' and\
+                    pos__e[0] == 'BASE_LIST_COMPR' and\
+                    pos__f[0] == '.:' and \
+                    pos__g[0] == ')END_LIST_COMPR':
+                        cmds[i:i+7] = [('BASE_LIST_COMPR', pos__e[1], (pos__c[2], pos__a[1:], (pos__d[2],)) +pos__e[2]),pos__f,pos__g]
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] == 'BASE_LIST_COMPR' and\
-                    e[0] == '.:' and \
-                    f[0] == ')END_LIST_COMPR':
-                        cmds[i:i+6] = [('BASE_LIST_COMPR', d[1], (c[2], a[1:], None) +d[2]),e,f]
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] == 'BASE_LIST_COMPR' and\
+                    pos__e[0] == '.:' and \
+                    pos__f[0] == ')END_LIST_COMPR':
+                        cmds[i:i+6] = [('BASE_LIST_COMPR', pos__d[1], (pos__c[2], pos__a[1:], None) +pos__d[2]),pos__e,pos__f]
                         continue
-                if  b[0] == '.:' and\
-                    c[0] == 'J_LOOP_VARS' and\
-                    d[0] == '.L' and\
-                    e[0] == 'BASE_LIST_COMPR' and\
-                    f[0] == '.:' and \
-                    g[0] == ')END_LIST_COMPR':
-                        cmds[i:i+7] = [('BASE_LIST_COMPR', e[1], (c[2], a[1:], None) +e[2]),f,g]
+                if  pos__b[0] == '.:' and\
+                    pos__c[0] == 'J_LOOP_VARS' and\
+                    pos__d[0] == '.L' and\
+                    pos__e[0] == 'BASE_LIST_COMPR' and\
+                    pos__f[0] == '.:' and \
+                    pos__g[0] == ')END_LIST_COMPR':
+                        cmds[i:i+7] = [('BASE_LIST_COMPR', pos__e[1], (pos__c[2], pos__a[1:], None) +pos__e[2]),pos__f,pos__g]
                         continue
-            if a[0] == '(BEGIN_LIST_COMPR':
-                if b[0] == '.L' and c[0] == 'BASE_LIST_COMPR' and d[0] == ')END_LIST_COMPR':
-                    cmds[i:i+4] = [('!LIST_COMPR', c[1], c[2])]
+            if pos__a[0] == '(BEGIN_LIST_COMPR':
+                if pos__b[0] == '.L' and pos__c[0] == 'BASE_LIST_COMPR' and pos__d[0] == ')END_LIST_COMPR':
+                    cmds[i:i+4] = [('!LIST_COMPR', pos__c[1], pos__c[2])]
                     continue
-                if b[0] == 'BASE_LIST_COMPR' and c[0] == ')END_LIST_COMPR':
-                    cmds[i:i+3] = [('!LIST_COMPR', b[1], b[2])]
+                if pos__b[0] == 'BASE_LIST_COMPR' and pos__c[0] == ')END_LIST_COMPR':
+                    cmds[i:i+3] = [('!LIST_COMPR', pos__b[1], pos__b[2])]
                     continue
-            if a[0] == 'RAISE_VARARGS' and a[1] == 0 and b[0] == 'POP_TOP':
-                cmds[i:i+2] = [('RAISE_VARARGS_STMT',) + a[1:]]
+            if pos__a[0] == 'RAISE_VARARGS' and pos__a[1] == 0 and pos__b[0] == 'POP_TOP':
+                cmds[i:i+2] = [('RAISE_VARARGS_STMT',) + pos__a[1:]]
                 continue
-        if type(a) is list and isblock(a):
-            if b[0] == 'JUMP_IF2_TRUE_POP_CONTINUE' and islineblock(c):
-                if type(c) is tuple:
-                    cmds[i:i+3] = [a+[('(IF',) + b[2:], [c,('CONTINUE',)], (')ENDIF',)]]
+        if type(pos__a) is list and isblock(pos__a):
+            if pos__b[0] == 'JUMP_IF2_TRUE_POP_CONTINUE' and islineblock(pos__c):
+                if type(pos__c) is tuple:
+                    cmds[i:i+3] = [pos__a+[('(IF',) + pos__b[2:], [pos__c,('CONTINUE',)], (')ENDIF',)]]
                     continue
-                if type(c) is list:
-                    cmds[i:i+3] = [a+[('(IF',) + b[2:], c+[('CONTINUE',)], (')ENDIF',)]]
+                if type(pos__c) is list:
+                    cmds[i:i+3] = [pos__a+[('(IF',) + pos__b[2:], pos__c+[('CONTINUE',)], (')ENDIF',)]]
                     continue
-            if b[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and isretblock(c):
-                    cmds[i:i+3] = [a+[('(IF',) + b[2:], c, (')ENDIF',)], ('JUMP_CONTINUE', b[1])]
+            if pos__b[0] == 'JUMP_IF2_FALSE_POP_CONTINUE' and isretblock(pos__c):
+                    cmds[i:i+3] = [pos__a+[('(IF',) + pos__b[2:], pos__c, (')ENDIF',)], ('JUMP_CONTINUE', pos__b[1])]
                     continue
-        if type(a) is tuple and len(a) >= 1:
-            if a[0] == '3CMP_BEG_3':
+        if type(pos__a) is tuple and len(pos__a) >= 1:
+            if pos__a[0] == '3CMP_BEG_3':
                 if SCmp(cmds,i, ('3CMP_BEG_3', 'JUMP_IF_FALSE', 'POP_TOP', \
                                 '>', 'COMPARE_OP', 'JUMP', (':', 1,1), \
                                 'ROT_TWO', 'POP_TOP', ('::', 5))):
-                    rpl(cmds, [New_3Cmp(('!3CMP',) + a[1:] + (e[1],) + (cmd2mem(d),))])
+                    rpl(cmds, [New_3Cmp(('!3CMP',) + pos__a[1:] + (pos__e[1],) + (cmd2mem(pos__d),))])
                     continue
                 if SCmp(cmds,i, ('3CMP_BEG_3', 'JUMP_IF_FALSE', \
                                 'POP_TOP', '>', 'DUP_TOP', 'ROT_THREE', 'COMPARE_OP', \
-                                'JUMP_IF_FALSE')) and b[1] == h_[1]:
-                    rpl(cmds, [('J_NCMP', h_[1]) + a[1:] + (g[1], cmd2mem(d))])
+                                'JUMP_IF_FALSE')) and pos__b[1] == pos__h[1]:
+                    rpl(cmds, [('J_NCMP', pos__h[1]) + pos__a[1:] + (pos__g[1], cmd2mem(pos__d))])
                     continue
                 if SCmp(cmds,i, ('3CMP_BEG_3', 'JUMP_IF_FALSE', 'POP_TOP', \
                                 '>', 'COMPARE_OP', 'RETURN_VALUE', (':', 1,1), \
                                 'ROT_TWO', 'POP_TOP', 'RETURN_VALUE')):
-                    rpl(cmds, [('RETURN_VALUE',New_3Cmp(('!3CMP',) + a[1:] + (e[1],) + (cmd2mem(d),)))])
+                    rpl(cmds, [('RETURN_VALUE',New_3Cmp(('!3CMP',) + pos__a[1:] + (pos__e[1],) + (cmd2mem(pos__d),)))])
                     continue
-            if a[0] == 'J_NCMP':
+            if pos__a[0] == 'J_NCMP':
                 if SCmp(cmds,i, ('J_NCMP', \
                                 'POP_TOP', '>', 'DUP_TOP', 'ROT_THREE', 'COMPARE_OP', \
-                                'JUMP_IF_FALSE')) and a[1] == g[1]:
-                    rpl(cmds, [a + (f[1], cmd2mem(c))])
+                                'JUMP_IF_FALSE')) and pos__a[1] == pos__g[1]:
+                    rpl(cmds, [pos__a + (pos__f[1], cmd2mem(pos__c))])
                     continue
                 if SCmp(cmds,i, ('J_NCMP', \
                                 'POP_TOP', '.L', '>', 'DUP_TOP', 'ROT_THREE', 'COMPARE_OP', \
-                                'JUMP_IF_FALSE')) and a[1] == h_[1]:
-                    rpl(cmds, [a + (g[1], cmd2mem(d))])
+                                'JUMP_IF_FALSE')) and pos__a[1] == pos__h[1]:
+                    rpl(cmds, [pos__a + (pos__g[1], cmd2mem(pos__d))])
                     continue
                 if SCmp(cmds,i, ('J_NCMP', 'POP_TOP', \
                                 '>', 'COMPARE_OP', 'JUMP', (':', 0,1), \
                                 'ROT_TWO', 'POP_TOP', ('::', 4))):       #  1
-                    rpl(cmds, [New_NCmp(a[2:] + (d[1], cmd2mem(c)))])
+                    rpl(cmds, [New_NCmp(pos__a[2:] + (pos__d[1], cmd2mem(pos__c)))])
                     continue
                 if SCmp(cmds,i, ('J_NCMP', 'POP_TOP', \
                                 '.L', '>', 'COMPARE_OP', 'JUMP', (':', 0,1), \
                                 'ROT_TWO', 'POP_TOP', ('::', 5))):       #  1
-                    rpl(cmds, [New_NCmp(a[2:] + (e[1], cmd2mem(d)))])
+                    rpl(cmds, [New_NCmp(pos__a[2:] + (pos__e[1], cmd2mem(pos__d)))])
                     continue
                 if SCmp(cmds,i, ('J_NCMP', 'POP_TOP', \
                                 '>', 'COMPARE_OP', 'RETURN_VALUE', (':', 0,1), \
                                 'ROT_TWO', 'POP_TOP', 'RETURN_VALUE')):
-                    rpl(cmds, [('RETURN_VALUE', New_NCmp(a[2:] + (d[1], cmd2mem(c))))])
+                    rpl(cmds, [('RETURN_VALUE', New_NCmp(pos__a[2:] + (pos__d[1], cmd2mem(pos__c))))])
                     continue
                 if SCmp(cmds,i, ('J_NCMP', 'POP_TOP', \
                                 '.L', '>', 'COMPARE_OP', 'RETURN_VALUE', (':', 0,1), \
                                 'ROT_TWO', 'POP_TOP', 'RETURN_VALUE')):
-                    rpl(cmds, [('RETURN_VALUE', New_NCmp(a[2:] + (e[1], cmd2mem(d))))])
+                    rpl(cmds, [('RETURN_VALUE', New_NCmp(pos__a[2:] + (pos__e[1], cmd2mem(pos__d))))])
                     continue
             if SCmp(cmds,i, ('LOAD_CODEFUNC', 'MAKE_FUNCTION', '!GET_ITER', 'CALL_FUNCTION_1')) and\
-            b[1] == 0 and d[1] == 1: 
-                cmds[i:i+4] = [('!GENERATOR_EXPR_NOCLOSURE',) + a[1:] + (c[1],)]
+            pos__b[1] == 0 and pos__d[1] == 1: 
+                cmds[i:i+4] = [('!GENERATOR_EXPR_NOCLOSURE',) + pos__a[1:] + (pos__c[1],)]
                 continue
-            if a[0] == '!MK_CLOSURE':
-                if b[0] == 'GET_ITER' and\
-                c[0] == 'CALL_FUNCTION_1' and c[1] == 1:
-                    cmds[i:i+3] = [('!GENERATOR_EXPR',) + a[1:] + (b[1],)]
+            if pos__a[0] == '!MK_CLOSURE':
+                if pos__b[0] == 'GET_ITER' and\
+                pos__c[0] == 'CALL_FUNCTION_1' and pos__c[1] == 1:
+                    cmds[i:i+3] = [('!GENERATOR_EXPR',) + pos__a[1:] + (pos__b[1],)]
                     continue   
-                if b[0] == '.L':
-                    cmds[i:i+2] = [a]
+                if pos__b[0] == '.L':
+                    cmds[i:i+2] = [pos__a]
                     continue  
-            if a[0] == 'MAKE_CLOSURE' and b[0] == '.L':
-                cmds[i:i+2] = [a]
+            if pos__a[0] == 'MAKE_CLOSURE' and pos__b[0] == '.L':
+                cmds[i:i+2] = [pos__a]
                 continue   
     
-            if a[0] == 'LOAD_CONST':
+            if pos__a[0] == 'LOAD_CONST':
                 changed_load_const = process_load_const(cmds,i, added_pass)
                 if changed_load_const:
                     continue
-            if a[0] == 'J_SETUP_FINALLY':
+            if pos__a[0] == 'J_SETUP_FINALLY':
                 changed_j_setup_fin = process_j_setup_finally(cmds,i, added_pass)
                 if changed_j_setup_fin:
                     process_after_try_detect(cmds,i)
                     continue
-            if a[0] == 'J_BEGIN_WITH':
+            if pos__a[0] == 'J_BEGIN_WITH':
                 changed_j_with = process_j_begin_with(cmds,i, added_pass)
                 if changed_j_with:
                     continue
-            if a[0] == 'J_SETUP_LOOP':
+            if pos__a[0] == 'J_SETUP_LOOP':
                 changed_loop = process_j_setup_loop(cmds,i, added_pass)
                 if changed_loop:
                     continue
-            if a[0] == 'J_SETUP_LOOP_FOR':
+            if pos__a[0] == 'J_SETUP_LOOP_FOR':
                 changed_loopfor = process_j_setup_loop_for(cmds,i)
                 if changed_loopfor:
                     continue
-            if a[0] == '(BEGIN_TRY':
+            if pos__a[0] == '(BEGIN_TRY':
                 changed_exc = process_begin_try(cmds,i)
                 if changed_exc:
                     process_after_try_detect(cmds,i)
                     continue
-            if a[0] == 'J_SETUP_EXCEPT':
+            if pos__a[0] == 'J_SETUP_EXCEPT':
                 changed_exc = process_setup_except(cmds,i)
                 if changed_exc:
                     process_after_try_detect(cmds,i)
                     continue
-            if a[0] in ('JUMP_IF_NOT_EXCEPTION_POP', 'POP_TOP3'):
+            if pos__a[0] in ('JUMP_IF_NOT_EXCEPTION_POP', 'POP_TOP3'):
                 changed_exc = process_except_clause(cmds,i)
                 if changed_exc:
                     continue
-            if is_cmdmem(a):
-                if is_cmdmem(b):
+            if is_cmdmem(pos__a):
+                if is_cmdmem(pos__b):
                     changed_push = process_push2(cmds,i, added_pass)
                     if changed_push:
                         continue
@@ -2821,52 +2835,52 @@ def half_recompile(cmds, co):
                     changed_push = process_push(cmds,i, added_pass)
                     if changed_push:
                         continue
-            if a[0] == 'SEQ_ASSIGN_0':   
-                if SCmp(cmds,i, ('SEQ_ASSIGN_0', '=')) and a[1] > 0:          
-                    rpl(cmds,[('SEQ_ASSIGN_0', a[1]-1, a[2] + (b,), a[3])])
+            if pos__a[0] == 'SEQ_ASSIGN_0':   
+                if SCmp(cmds,i, ('SEQ_ASSIGN_0', '=')) and pos__a[1] > 0:          
+                    rpl(cmds,[('SEQ_ASSIGN_0', pos__a[1]-1, pos__a[2] + (pos__b,), pos__a[3])])
                     continue    
                 if SCmp(cmds,i, ('SEQ_ASSIGN_0', 'DUP_TOP')):          
-                    rpl(cmds,[('SEQ_ASSIGN_0', a[1]+1, a[2], a[3])])
+                    rpl(cmds,[('SEQ_ASSIGN_0', pos__a[1]+1, pos__a[2], pos__a[3])])
                     continue    
-                if a[1] == 0:      
-                    assert len(a) == 4 
-                    cmds[i] = ('SEQ_ASSIGN', a[2], a[3])
+                if pos__a[1] == 0:      
+                    assert len(pos__a) == 4 
+                    cmds[i] = ('SEQ_ASSIGN', pos__a[2], pos__a[3])
                     continue    
             if SCmp(cmds,i, ('LOAD_FAST', '>', 'ROT_TWO')):
-                rpl(cmds,[b[:], a[:]])
+                rpl(cmds,[pos__b[:], pos__a[:]])
                 continue
             if SCmp(cmds,i, ('LOAD_NAME', '>', 'ROT_TWO')):
-                rpl(cmds,[b[:], a[:]])
+                rpl(cmds,[pos__b[:], pos__a[:]])
                 continue
             if SCmp(cmds,i, ((':', 3,0), 'J_LOOP_VARS', '*n', 'xJUMP_IF2_FALSE_POP_CONTINUE', '*')):
-                rpl(cmds,[a,b,c+[('(IF', Not(d[2])), [('CONTINUE',)], (')ENDIF',)]+e])
+                rpl(cmds,[pos__a,pos__b,pos__c+[('(IF', Not(pos__d[2])), [('CONTINUE',)], (')ENDIF',)]+pos__e])
                 continue
             if SCmp(cmds,i, ((':', 3,0), 'J_LOOP_VARS', '*n', 'xJUMP_IF2_FALSE_POP_CONTINUE', '*l')):
-                if type(e) is tuple:
-                    rpl(cmds,[a,b,c+[('(IF', Not(d[2])), [('CONTINUE',)], (')ENDIF',)],e])
+                if type(pos__e) is tuple:
+                    rpl(cmds,[pos__a,pos__b,pos__c+[('(IF', Not(pos__d[2])), [('CONTINUE',)], (')ENDIF',)],pos__e])
                 else:
-                    rpl(cmds,[a,b,c+[('(IF', Not(d[2])), [('CONTINUE',)], (')ENDIF',)]+e])
+                    rpl(cmds,[pos__a,pos__b,pos__c+[('(IF', Not(pos__d[2])), [('CONTINUE',)], (')ENDIF',)]+pos__e])
                 continue
             if SCmp(cmds,i, ((':', 3,0), 'J_LOOP_VARS', '*n', 'xJUMP_IF2_FALSE_POP_CONTINUE')):
-                rpl(cmds,[a,b,c+[('(IF', Not(d[2])), [('CONTINUE',)], (')ENDIF',)]])
+                rpl(cmds,[pos__a,pos__b,pos__c+[('(IF', Not(pos__d[2])), [('CONTINUE',)], (')ENDIF',)]])
                 continue
             if added_pass:   
-                if a[0] == 'JUMP' and type(b) is tuple and \
-                    b[0] not in ('.:', 'POP_BLOCK', 'END_FINALLY', None, '^^'):
+                if pos__a[0] == 'JUMP' and type(pos__b) is tuple and \
+                    pos__b[0] not in ('.:', 'POP_BLOCK', 'END_FINALLY', None, '^^'):
                     del cmds[i+1]
                     continue
-                if a[0] == 'RETURN_VALUE' and type(b) is tuple and \
-                    b[0] not in ('.:', 'POP_BLOCK', 'END_FINALLY', None, '^^'):
+                if pos__a[0] == 'RETURN_VALUE' and type(pos__b) is tuple and \
+                    pos__b[0] not in ('.:', 'POP_BLOCK', 'END_FINALLY', None, '^^'):
                     del cmds[i+1]
                     continue
             if SCmp(cmds,i, ('(BEGIN_DEF', '*r')) and len(cmds) > 2:
                 del cmds[2:]
                 continue
-            if SCmp(cmds,i, ('J_COND_PUSH', 'J_COND_PUSH')) and a[1] == b[1]:
-                rpl(cmds,[a[:] + b[2:]])
+            if SCmp(cmds,i, ('J_COND_PUSH', 'J_COND_PUSH')) and pos__a[1] == pos__b[1]:
+                rpl(cmds,[pos__a[:] + pos__b[2:]])
                 continue
             if SCmp(cmds,i, ('J_COND_PUSH', '>', ('::', 0))):
-                rpl(cmds,[('!COND_EXPR',) + a[2:] + (cmd2mem(b),)])
+                rpl(cmds,[('!COND_EXPR',) + pos__a[2:] + (cmd2mem(pos__b),)])
                 continue
         i = i + 1   
     if len(cmds) > 2:   
@@ -2880,22 +2894,22 @@ def process_list_compr_2(cmds,i,added_pass):
     if SCmp(cmds, i, (('!BUILD_LIST', ()), '!GET_ITER', (':', 5, 1),\
                         'J_LOOP_VARS', '!GET_ITER', 'J_BASE_LIST_COMPR', \
                          ('::', 3))):
-        if f[3][2] == ():                     
-            rpl(cmds, [('!LIST_COMPR', f[2], (d[2], (b[1],), None, f[3][0], (e[1],), None))])
+        if pos__f[3][2] == ():                     
+            rpl(cmds, [('!LIST_COMPR', pos__f[2], (pos__d[2], (pos__b[1],), None, pos__f[3][0], (pos__e[1],), None))])
             return True   
         else:
-            rpl(cmds, [('!LIST_COMPR', f[2], (d[2], (b[1],), None, f[3][0], (e[1],), f[3][2]))])
+            rpl(cmds, [('!LIST_COMPR', pos__f[2], (pos__d[2], (pos__b[1],), None, pos__f[3][0], (pos__e[1],), pos__f[3][2]))])
             return True   
         
     if SCmp(cmds, i, (('!BUILD_LIST', ()), \
                      '!GET_ITER', (':', 6, 1), 'J_LOOP_VARS', \
                      '!GET_ITER', (':', 8, 1), 'J_LOOP_VARS', \
                      '!GET_ITER', 'J_BASE_LIST_COMPR', ('::', 3))):
-        if i_[3][2] == ():                     
-            rpl(cmds, [('!LIST_COMPR', i_[2], (d[2], (b[1],), None,  g[2], (e[1],), None, i_[3][0], (h_[1],), None))])
+        if pos__i[3][2] == ():                     
+            rpl(cmds, [('!LIST_COMPR', pos__i[2], (pos__d[2], (pos__b[1],), None,  pos__g[2], (pos__e[1],), None, pos__i[3][0], (pos__h[1],), None))])
             return True   
         else:
-            rpl(cmds, [('!LIST_COMPR', i_[2], (d[2], (b[1],), None,  g[2], (e[1],), None, i_[3][0], (h_[1],), i_[3][2]))])
+            rpl(cmds, [('!LIST_COMPR', pos__i[2], (pos__d[2], (pos__b[1],), None,  pos__g[2], (pos__e[1],), None, pos__i[3][0], (pos__h[1],), pos__i[3][2]))])
             return True   
 
         
@@ -2903,506 +2917,506 @@ def process_list_compr_2(cmds,i,added_pass):
     if SCmp(cmds, i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4,6)),\
                         'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP','!GET_ITER', \
                         'J_BASE_LIST_COMPR', ('::', 3))):
-        if g[3][2] == ():                     
-            rpl(cmds, [('!LIST_COMPR', g[2], (d[2], (b[1],), (Not(e[2]),), g[3][0], (f[1],), None))])
+        if pos__g[3][2] == ():                     
+            rpl(cmds, [('!LIST_COMPR', pos__g[2], (pos__d[2], (pos__b[1],), (Not(pos__e[2]),), pos__g[3][0], (pos__f[1],), None))])
             return True   
         else:
-            rpl(cmds, [('!LIST_COMPR', g[2], (d[2], (b[1],), (Not(e[2]),), g[3][0], (f[1],), g[3][2]))])
+            rpl(cmds, [('!LIST_COMPR', pos__g[2], (pos__d[2], (pos__b[1],), (Not(pos__e[2]),), pos__g[3][0], (pos__f[1],), pos__g[3][2]))])
             return True                                
                                                                                    
     if SCmp(cmds, i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4,6)),\
                         'J_LOOP_VARS', 'JUMP_IF2_FALSE_POP','!GET_ITER', \
                         'J_BASE_LIST_COMPR', ('::', 3))):
-        if g[3][2] == ():                     
-            rpl(cmds, [('!LIST_COMPR', g[2], (d[2], (b[1],), (e[2],), g[3][0], (f[1],), None))])
+        if pos__g[3][2] == ():                     
+            rpl(cmds, [('!LIST_COMPR', pos__g[2], (pos__d[2], (pos__b[1],), (pos__e[2],), pos__g[3][0], (pos__f[1],), None))])
             return True   
         else:
-            rpl(cmds, [('!LIST_COMPR', g[2], (d[2], (b[1],), (e[2],), g[3][0], (f[1],), g[3][2]))])
+            rpl(cmds, [('!LIST_COMPR', pos__g[2], (pos__d[2], (pos__b[1],), (pos__e[2],), pos__g[3][0], (pos__f[1],), pos__g[3][2]))])
             return True                                
                                                                                    
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', 'J_BASE_LIST_COMPR', ('::', 2))):
-        if c[3][1] is None:
-            if c[3][2] == ():
-                rpl(cmds, [('!LIST_COMPR', c[2], (c[3][0], (b[1],), None))])
+        if pos__c[3][1] is None:
+            if pos__c[3][2] == ():
+                rpl(cmds, [('!LIST_COMPR', pos__c[2], (pos__c[3][0], (pos__b[1],), None))])
                 return True   
             else:
-                rpl(cmds, [('!LIST_COMPR', c[2], (c[3][0], (b[1],), c[3][2]))])
+                rpl(cmds, [('!LIST_COMPR', pos__c[2], (pos__c[3][0], (pos__b[1],), pos__c[3][2]))])
                 return True   
 
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', 6,1), \
                     'J_LOOP_VARS', '>', ('LIST_APPEND', 2), 'JUMP', \
                     ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(e),), (d[2], (b[1],), None))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__e),), (pos__d[2], (pos__b[1],), None))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', 6,1), \
                     'J_LOOP_VARS', '>', ('LIST_APPEND', 2), 'JUMP_CONTINUE', \
                     ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(e),), (d[2], (b[1],), None))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__e),), (pos__d[2], (pos__b[1],), None))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_FALSE_POP', \
             '>', ('LIST_APPEND', 2), 'JUMP',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (e[2],)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (pos__e[2],)))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_FALSE_POP', \
             '>', ('LIST_APPEND', 2), 'JUMP_CONTINUE',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (e[2],)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (pos__e[2],)))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_FALSE_POP_CONTINUE', \
             '>', ('LIST_APPEND', 2), 'JUMP_CONTINUE',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (e[2],)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (pos__e[2],)))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP', \
             '>', ('LIST_APPEND', 2), 'JUMP',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (Not(e[2]),)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (Not(pos__e[2]),)))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP', \
             '>', ('LIST_APPEND', 2), 'JUMP_CONTINUE',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (Not(e[2]),)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (Not(pos__e[2]),)))]                )
         return True     
     if SCmp(cmds,i, (('!BUILD_LIST', ()), '!GET_ITER', (':', (4, 7)),\
             'J_LOOP_VARS', 'JUMP_IF2_TRUE_POP_CONTINUE', \
             '>', ('LIST_APPEND', 2), 'JUMP_CONTINUE',\
             ('::', 3))):
-        rpl(cmds, [('!LIST_COMPR', (cmd2mem(f),), (d[2], (b[1],), (Not(e[2]),)))]                )
+        rpl(cmds, [('!LIST_COMPR', (cmd2mem(pos__f),), (pos__d[2], (pos__b[1],), (Not(pos__e[2]),)))]                )
         return True     
     return False
 
 def process_push(cmds,i,added_pass):
-    aa = cmd2mem(a)
+    aa = cmd2mem(pos__a)
 
     if SCmp(cmds,i, ('LOAD_FAST', (':', 4, 1), 'J_LOOP_VARS', '*', 'JUMP', (':', 2, 1))):
-        rpl(cmds,[[('(FOR_DIRECT_ITER', aa, c[2]), d, (')FOR_DIRECT_ITER',)]])
+        rpl(cmds,[[('(FOR_DIRECT_ITER', aa, pos__c[2]), pos__d, (')FOR_DIRECT_ITER',)]])
         return True       
 
     if SCmp(cmds,i, ('LOAD_FAST', (':', 5, 1), 'J_LOOP_VARS', '!GET_ITER', (':', 7, 1), \
                      'J_LOOP_VARS', '*', 'JUMP', (':', 2, 1))):
-        rpl(cmds,[[('(FOR_DIRECT_ITER2', aa, c[2], d[1]), g, (')FOR_DIRECT_ITER2',)]])
+        rpl(cmds,[[('(FOR_DIRECT_ITER2', aa, pos__c[2], pos__d[1]), pos__g, (')FOR_DIRECT_ITER2',)]])
         return True       
 
 
     if SCmp(cmds,i, ('>', 'J_SETUP_WITH', 'POP_TOP')):    
-        rpl(cmds,[('J_BEGIN_WITH', b[1], aa, ())])
+        rpl(cmds,[('J_BEGIN_WITH', pos__b[1], aa, ())])
         return True       
     if SCmp(cmds,i, ('>', 'J_SETUP_WITH', '=')):    
-        rpl(cmds,[('J_BEGIN_WITH', b[1], aa, (c,))])
+        rpl(cmds,[('J_BEGIN_WITH', pos__b[1], aa, (pos__c,))])
         return True       
     
     
     if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE_OR_POP', '>', (':', 1, 1))):
-        rpl(cmds,[Or_j_s(a, c)])
+        rpl(cmds,[Or_j_s(pos__a, pos__c)])
         return True       
     if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE_OR_POP', '>', (':', 1, 1))):
-        rpl(cmds,[And_j_s(a, c)])
+        rpl(cmds,[And_j_s(pos__a, pos__c)])
         return True       
 
-    if a[0] == '!BUILD_LIST' and len(a[1]) == 0 and b[0] == 'DUP_TOP' and\
-        c[0] == 'STORE_FAST' and c[1][0:2] == '_[': # and d[0] == 'GET_ITER':
-        cmds[i:i+3] = [('(BEGIN_LIST_COMPR', ('FAST', c[1]))] #, d[1])]
+    if pos__a[0] == '!BUILD_LIST' and len(pos__a[1]) == 0 and pos__b[0] == 'DUP_TOP' and\
+        pos__c[0] == 'STORE_FAST' and pos__c[1][0:2] == '_[': # and pos__d[0] == 'GET_ITER':
+        cmds[i:i+3] = [('(BEGIN_LIST_COMPR', ('FAST', pos__c[1]))] #, pos__d[1])]
         return True
-    if a[0] == '!BUILD_LIST' and len(a[1]) == 0 and b[0] == 'DUP_TOP' and\
-        c[0] == 'STORE_NAME' and c[1][0:2] == '_[':# and d[0] == 'GET_ITER':
-        cmds[i:i+3] = [('(BEGIN_LIST_COMPR', ('!NAME', c[1]))] #, d[1])]
+    if pos__a[0] == '!BUILD_LIST' and len(pos__a[1]) == 0 and pos__b[0] == 'DUP_TOP' and\
+        pos__c[0] == 'STORE_NAME' and pos__c[1][0:2] == '_[':# and pos__d[0] == 'GET_ITER':
+        cmds[i:i+3] = [('(BEGIN_LIST_COMPR', ('!NAME', pos__c[1]))] #, pos__d[1])]
         return True
-    if a[0] == '!BUILD_TUPLE' and b[0] == 'POP_TOP':
+    if pos__a[0] == '!BUILD_TUPLE' and pos__b[0] == 'POP_TOP':
         cmds[i:i+2] = [('UNPUSH', aa)]
         return True
-    if b is not None and b[0] == 'DUP_TOP':
+    if pos__b is not None and pos__b[0] == 'DUP_TOP':
 
         if SCmp(cmds,i, ('>', 'DUP_TOP', ('LOAD_ATTR_1', '__exit__'), \
                         'ROT_TWO', ('LOAD_ATTR_1', '__enter__'), ('CALL_FUNCTION_1', 0),\
                         'POP_TOP', 'J_SETUP_FINALLY')):
-                cmds[i:i+8] = [('J_BEGIN_WITH', h_[1], aa,())] 
+                cmds[i:i+8] = [('J_BEGIN_WITH', pos__h[1], aa,())] 
                 return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', ('LOAD_ATTR_1', '__exit__'), 'STORE_FAST',\
                         ('LOAD_ATTR_1', '__enter__'), ('CALL_FUNCTION_1', 0), 'POP_TOP', 'J_SETUP_FINALLY')):
-                cmds[i:i+8] = [('J_BEGIN_WITH', h_[1], aa,())] 
+                cmds[i:i+8] = [('J_BEGIN_WITH', pos__h[1], aa,())] 
                 return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', ('LOAD_ATTR_1', '__exit__'), \
                         'ROT_TWO', ('LOAD_ATTR_1', '__enter__'), \
                         ('CALL_FUNCTION_1', 0), 'STORE_FAST', \
                         'J_SETUP_FINALLY', 'LOAD_FAST', \
-                        'DELETE_FAST', '=')) and g[1] == i_[1] and g[1] == j_[1]:
-                cmds[i:i+11] = [('J_BEGIN_WITH', h_[1], aa, (k_))] 
+                        'DELETE_FAST', '=')) and pos__g[1] == pos__i[1] and pos__g[1] == pos__j[1]:
+                cmds[i:i+11] = [('J_BEGIN_WITH', pos__h[1], aa, (pos__k))] 
                 return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', ('LOAD_ATTR_1', '__exit__'), \
                         'ROT_TWO', ('LOAD_ATTR_1', '__enter__'), ('CALL_FUNCTION_1', 0),\
                             'STORE_FAST', 'J_SETUP_FINALLY', 'LOAD_FAST', \
-                        ')END_LIST_COMPR', '=')) and g[1] == i_[1] and g[1] == j_[1][1]:
-                cmds[i:i+11] = [('J_BEGIN_WITH', h_[1], aa, (k_))] 
+                        ')END_LIST_COMPR', '=')) and pos__g[1] == pos__i[1] and pos__g[1] == pos__j[1][1]:
+                cmds[i:i+11] = [('J_BEGIN_WITH', pos__h[1], aa, (pos__k))] 
                 return True
             
-        if (a[0] == '!LOAD_DEREF' or a[0] == '!LOAD_NAME' or a[0] == '!LOAD_GLOBAL' or \
-            a[0] == '!PyDict_GetItem(glob,' or\
-             a[0] == 'LOAD_FAST' or a[0] == '!PyObject_GetAttr'):
-            cmds[i:i+2] = [a[:], a[:]]
+        if (pos__a[0] == '!LOAD_DEREF' or pos__a[0] == '!LOAD_NAME' or pos__a[0] == '!LOAD_GLOBAL' or \
+            pos__a[0] == '!PyDict_GetItem(glob,' or\
+             pos__a[0] == 'LOAD_FAST' or pos__a[0] == '!PyObject_GetAttr'):
+            cmds[i:i+2] = [pos__a[:], pos__a[:]]
             return True
                     
         if SCmp(cmds,i, ('>', 'DUP_TOP', '=', '=')):
-                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (d,c), ('CLONE', aa))]
+                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (pos__d,pos__c), ('CLONE', aa))]
                 return True
-        if SCmp(cmds,i, ('>', 'DUP_TOP', 'UNPACK_SEQ_AND_STORE', '=')) and c[1] == 0:
-                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (d,c), ('CLONE', aa))]
+        if SCmp(cmds,i, ('>', 'DUP_TOP', 'UNPACK_SEQ_AND_STORE', '=')) and pos__c[1] == 0:
+                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (pos__d,pos__c), ('CLONE', aa))]
                 return True           
         if SCmp(cmds,i, ('>', 'DUP_TOP', '>', 'ROT_TWO', \
                         'PRINT_ITEM_TO_0', 'PRINT_NEWLINE_TO_0')):        
-            cmds[i:i+6] = [('PRINT_ITEM_AND_NEWLINE_TO_2', aa, cmd2mem(c))]
+            cmds[i:i+6] = [('PRINT_ITEM_AND_NEWLINE_TO_2', aa, cmd2mem(pos__c))]
             return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', '>', 'ROT_TWO', \
                         'PRINT_ITEM_TO_0', 
                         'DUP_TOP', '>', 'ROT_TWO', 'PRINT_ITEM_TO_0',
                         'PRINT_NEWLINE_TO_0')):        
-            cmds[i:i+10] = [('PRINT_ITEM_AND_NEWLINE_TO_3', aa, cmd2mem(c), cmd2mem(g))]
+            cmds[i:i+10] = [('PRINT_ITEM_AND_NEWLINE_TO_3', aa, cmd2mem(pos__c), cmd2mem(pos__g))]
             return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', '>', 'ROT_TWO',  'PRINT_ITEM_TO_0', 'POP_TOP')):        
-            rpl(cmds,[('PRINT_ITEM_TO_2', aa, cmd2mem(c))])
+            rpl(cmds,[('PRINT_ITEM_TO_2', aa, cmd2mem(pos__c))])
             return True        
         if SCmp(cmds,i, ('>', 'DUP_TOP', 'LOAD_ATTR_1', '>', 'INPLACE_ADD',\
-                        'ROT_TWO', 'STORE_ATTR_1')) and g[1] == c[1]:
-            rpl(cmds,[('STORE', (('PyObject_SetAttr', aa, ('CONST', h_[1])),), \
-                    (('!' + recode_inplace['INPLACE_ADD'], aa, cmd2mem(d)),))])
+                        'ROT_TWO', 'STORE_ATTR_1')) and pos__g[1] == pos__c[1]:
+            rpl(cmds,[('STORE', (('PyObject_SetAttr', aa, ('CONST', pos__h[1])),), \
+                    (('!' + recode_inplace['INPLACE_ADD'], aa, cmd2mem(pos__d)),))])
             return True   
         if SCmp(cmds,i, ('>', 'DUP_TOP', 'LOAD_ATTR_1', '>', 'INPLACE_MULTIPLY',\
-                        'ROT_TWO', 'STORE_ATTR_1')) and g[1] == c[1]:
-            rpl(cmds,[('STORE', (('PyObject_SetAttr', aa, ('CONST', h_[1])),), 
-                    (('!' + recode_inplace['INPLACE_MULTIPLY'], aa, cmd2mem(d)),))])
+                        'ROT_TWO', 'STORE_ATTR_1')) and pos__g[1] == pos__c[1]:
+            rpl(cmds,[('STORE', (('PyObject_SetAttr', aa, ('CONST', pos__h[1])),), 
+                    (('!' + recode_inplace['INPLACE_MULTIPLY'], aa, cmd2mem(pos__d)),))])
             return True   
         if SCmp(cmds,i, ('>', 'DUP_TOP', 'STORE_GLOBAL', 'STORE_FAST')):
-            rpl(cmds,[a, d, ('LOAD_FAST', d[1]), c])
+            rpl(cmds,[pos__a, pos__d, ('LOAD_FAST', pos__d[1]), pos__c])
             return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', 'STORE_FAST', 'STORE_GLOBAL')):
-            rpl(cmds,[a, c, ('LOAD_FAST', c[1]), d])
+            rpl(cmds,[pos__a, pos__c, ('LOAD_FAST', pos__c[1]), pos__d])
             return True
         if SCmp(cmds,i, ('>', 'DUP_TOP', '=')):
-                rpl(cmds,[('SEQ_ASSIGN_0', 1, (c,), aa)])
+                rpl(cmds,[('SEQ_ASSIGN_0', 1, (pos__c,), aa)])
                 return True    
         if SCmp(cmds,i, ('>', 'DUP_TOP', 'STORE_FAST')): 
-                rpl(cmds,[a, c, ('LOAD_FAST', c[1])])
+                rpl(cmds,[pos__a, pos__c, ('LOAD_FAST', pos__c[1])])
                 return True
 
     ## if SCmp(cmds,i, ('>', 'DUP_TOP', ('LOAD_ATTR_1', '__exit__'),\ # By CloneDigger
                     ## 'ROT_TWO', ('LOAD_ATTR_1', '__enter__'), \
                     ## ('CALL_FUNCTION_1', 0), 'STORE_FAST', \
                     ## 'J_SETUP_FINALLY', 'LOAD_FAST', \
-                    ## 'DELETE_FAST', '=')) and g[1] == i_[1] and g[1] == j_[1]:
-            ## cmds[i:i+11] = [('J_BEGIN_WITH', h_[1], aa, (k_))] 
+                    ## 'DELETE_FAST', '=')) and pos__g[1] == pos__i[1] and pos__g[1] == pos__j[1]:
+            ## cmds[i:i+11] = [('J_BEGIN_WITH', pos__h[1], aa, (pos__k))] 
             ## return True
     if SCmp(cmds,i, ('!PyObject_GetAttr', 'STORE', 'J_SETUP_FINALLY', \
                     'LOAD_FAST', ')END_LIST_COMPR', '=')) and\
-                    a[2][1] == '__exit__' and \
-                    b[1][0][1][:2] == '_[' and \
-                    d[1] == b[1][0][1]:
-            cmds[i:i+6] = [('J_BEGIN_WITH', c[1], a[1], (f,))] 
+                    pos__a[2][1] == '__exit__' and \
+                    pos__b[1][0][1][:2] == '_[' and \
+                    pos__d[1] == pos__b[1][0][1]:
+            cmds[i:i+6] = [('J_BEGIN_WITH', pos__c[1], pos__a[1], (pos__f,))] 
             return True
     if SCmp(cmds,i, ('!PyObject_GetAttr', 'STORE', 'J_SETUP_FINALLY', '!LOAD_NAME', \
-                    ')END_LIST_COMPR', '=')) and a[2][1] == '__exit__' and d[1] == e[1][1]:
-            rpl(cmds,[('J_BEGIN_WITH', c[1], a[1], (f))])
+                    ')END_LIST_COMPR', '=')) and pos__a[2][1] == '__exit__' and pos__d[1] == pos__e[1][1]:
+            rpl(cmds,[('J_BEGIN_WITH', pos__c[1], pos__a[1], (pos__f))])
             return True
 
-    if isblock(b) and len(b) == 1 and type(b[0]) is tuple:
-        cmds[i+1:i+2] = b
+    if isblock(pos__b) and len(pos__b) == 1 and type(pos__b[0]) is tuple:
+        cmds[i+1:i+2] = pos__b
         return True
 
-    if  is_cmdmem(c) and b[0] == '.L':
+    if  is_cmdmem(pos__c) and pos__b[0] == '.L':
         del cmds[i+1]
         return True
-    if c[0] == 'MK_FUNK' and c[2] > 0 and b[0] == '.L':
-        cmds[i:i+3] = [('MK_FUNK', c[1], c[2]-1, (aa,)+c[3])]
+    if pos__c[0] == 'MK_FUNK' and pos__c[2] > 0 and pos__b[0] == '.L':
+        cmds[i:i+3] = [('MK_FUNK', pos__c[1], pos__c[2]-1, (aa,)+pos__c[3])]
         return True
-    if b[0] == 'MK_FUNK' and b[2] > 0:
-        cmds[i:i+2] = [('MK_FUNK', b[1], b[2]-1, (aa,)+b[3])]
+    if pos__b[0] == 'MK_FUNK' and pos__b[2] > 0:
+        cmds[i:i+2] = [('MK_FUNK', pos__b[1], pos__b[2]-1, (aa,)+pos__b[3])]
         return True
-    if b[0] == 'LOAD_CODEFUNC' and c[0] == 'MAKE_CLOSURE':
-        cmds[i:i+3] = [('MK_CLOSURE', b[1], c[1], aa, ())]
+    if pos__b[0] == 'LOAD_CODEFUNC' and pos__c[0] == 'MAKE_CLOSURE':
+        cmds[i:i+3] = [('MK_CLOSURE', pos__b[1], pos__c[1], aa, ())]
         return True
-    if b[0] == 'MK_CLOSURE' and b[2] > 0:
-        cmds[i:i+2] = [('MK_CLOSURE', b[1], b[2]-1, b[3], (aa,)+b[4])]
+    if pos__b[0] == 'MK_CLOSURE' and pos__b[2] > 0:
+        cmds[i:i+2] = [('MK_CLOSURE', pos__b[1], pos__b[2]-1, pos__b[3], (aa,)+pos__b[4])]
         return True       
 
     if SCmp(cmds,i, ('>', 'JUMP', '>', (':', 1, 1))):
-        cmds[i:i+4] = [a[:]]
+        cmds[i:i+4] = [pos__a[:]]
         return True
     if SCmp(cmds,i, ('>', 'JUMP', '>', (':', 1, 2))):
-        cmds[i:i+4] = [a[:], d[:]]
+        cmds[i:i+4] = [pos__a[:], pos__d[:]]
         return True
 
-    if b[0] == 'PRINT_ITEM_TO_2' and \
-        c[0] == 'DUP_TOP':
-        cmds[i:i+3] = [b[:], a, c]
+    if pos__b[0] == 'PRINT_ITEM_TO_2' and \
+        pos__c[0] == 'DUP_TOP':
+        cmds[i:i+3] = [pos__b[:], pos__a, pos__c]
         return True
-    if b[0] == 'PRINT_ITEM_TO_2' and \
-        c[0] == 'PRINT_NEWLINE_TO_0':
-        cmds[i:i+3] = [b[:], ('PRINT_NEWLINE_TO_1', aa)]
+    if pos__b[0] == 'PRINT_ITEM_TO_2' and \
+        pos__c[0] == 'PRINT_NEWLINE_TO_0':
+        cmds[i:i+3] = [pos__b[:], ('PRINT_NEWLINE_TO_1', aa)]
         return True
-    if b[0] == 'PRINT_NEWLINE_TO_0':
+    if pos__b[0] == 'PRINT_NEWLINE_TO_0':
         cmds[i:i+2] = [('PRINT_NEWLINE_TO_1', aa)]
         return True
 
-    if  is_cmdmem(c) and b[0] == '.L':
-            cmds[i:i+3] = b, a, c
+    if  is_cmdmem(pos__c) and pos__b[0] == '.L':
+            cmds[i:i+3] = pos__b, pos__a, pos__c
             return True
-    if b[0] == 'STORE_ATTR_1':
-        cmds[i:i+2] = [('PyObject_SetAttr', aa, ('CONST', b[1]))]
+    if pos__b[0] == 'STORE_ATTR_1':
+        cmds[i:i+2] = [('PyObject_SetAttr', aa, ('CONST', pos__b[1]))]
         return True
-    if  b[0] in set_any:
-        cmds[i:i+2] = [('STORE',(b,), (aa,))]
+    if  pos__b[0] in set_any:
+        cmds[i:i+2] = [('STORE',(pos__b,), (aa,))]
         return True
-    if b[0] == 'PRINT_ITEM_0':
+    if pos__b[0] == 'PRINT_ITEM_0':
         cmds[i:i+2] = [('PRINT_ITEM_1',) + (aa,)]
         return True
-    if ( b[0] in ('JUMP_IF_FALSE_POP_BREAK','JUMP_IF_FALSE_POP_CONTINUE',\
+    if ( pos__b[0] in ('JUMP_IF_FALSE_POP_BREAK','JUMP_IF_FALSE_POP_CONTINUE',\
                     'JUMP_IF_TRUE_POP_BREAK','JUMP_IF_TRUE_POP_CONTINUE',\
-                    'JUMP_IF_FALSE_POP', 'JUMP_IF_TRUE_POP') and len(b) == 2 ):
-        bb = 'JUMP_IF2_' + b[0][8:]     
-        cmds[i:i+2] = [(bb, b[1], aa)]
+                    'JUMP_IF_FALSE_POP', 'JUMP_IF_TRUE_POP') and len(pos__b) == 2 ):
+        bb = 'JUMP_IF2_' + pos__b[0][8:]     
+        cmds[i:i+2] = [(bb, pos__b[1], aa)]
         return True
-    if b[0] == 'RETURN_VALUE' and len(b) == 1:
-        cmds[i:i+2] = [b + (aa,)]
+    if pos__b[0] == 'RETURN_VALUE' and len(pos__b) == 1:
+        cmds[i:i+2] = [pos__b + (aa,)]
         return True
-    if b[0] == 'IMPORT_STAR' and len(b) == 1 and a[0] == '!IMPORT_NAME':
+    if pos__b[0] == 'IMPORT_STAR' and len(pos__b) == 1 and pos__a[0] == '!IMPORT_NAME':
         cmds[i:i+2] = make_import_star(aa)
         return True
-    if b[0] == 'IMPORT_STAR' and len(b) == 1:
-        cmds[i:i+2] = [b + (aa,)]
+    if pos__b[0] == 'IMPORT_STAR' and len(pos__b) == 1:
+        cmds[i:i+2] = [pos__b + (aa,)]
         return True
-    if b[0] == 'GET_ITER'  and len( b) == 1 :
+    if pos__b[0] == 'GET_ITER'  and len( pos__b) == 1 :
         cmds[i:i+2] = [('!GET_ITER',) + (aa,)]
         return True
-    if b[0] == 'BUILD_LIST' and b[1] > 0:
-        if len(b) == 2:
-            b_ = (b[0], b[1], ())
+    if pos__b[0] == 'BUILD_LIST' and pos__b[1] > 0:
+        if len(pos__b) == 2:
+            b_ = (pos__b[0], pos__b[1], ())
         else:
-            b_ = b    
+            b_ = pos__b    
         cmds[i:i+2] = [('BUILD_LIST', b_[1] - 1, (aa,) + b_[2])]
         return True
-    if b[0] == 'BUILD_TUPLE' and b[1] > 0:
-        if len(b) == 2:
-            b_ = (b[0], b[1], ())
+    if pos__b[0] == 'BUILD_TUPLE' and pos__b[1] > 0:
+        if len(pos__b) == 2:
+            b_ = (pos__b[0], pos__b[1], ())
         else:
-            b_ = b    
+            b_ = pos__b    
         cmds[i:i+2] = [('BUILD_TUPLE', b_[1] - 1, (aa,) + b_[2])]
         return True
-    if b[0] == 'BUILD_SET' and b[1] > 0:
-        if len(b) == 2:
-            b_ = (b[0], b[1], ())
+    if pos__b[0] == 'BUILD_SET' and pos__b[1] > 0:
+        if len(pos__b) == 2:
+            b_ = (pos__b[0], pos__b[1], ())
         else:
-            b_ = b    
+            b_ = pos__b    
         cmds[i:i+2] = [('BUILD_SET', b_[1] - 1, (aa,) + b_[2])]
         return True
-    if b[0] == 'LOAD_ATTR_1':
-        cmds[i:i+2] = [('!PyObject_GetAttr', aa, ('CONST', b[1]))]
+    if pos__b[0] == 'LOAD_ATTR_1':
+        cmds[i:i+2] = [('!PyObject_GetAttr', aa, ('CONST', pos__b[1]))]
         return True
-    if b[0] == 'SLICE+0' and len(b) == 1:
+    if pos__b[0] == 'SLICE+0' and len(pos__b) == 1:
         cmds[i:i+2] = [('!PySequence_GetSlice', aa, 0, 'PY_SSIZE_T_MAX')]        
         return True
-    if b[0] == 'YIELD_VALUE' and len(b) == 1 and c[0] == 'POP_TOP':
+    if pos__b[0] == 'YIELD_VALUE' and len(pos__b) == 1 and pos__c[0] == 'POP_TOP':
         cmds[i:i+3] = [('YIELD_STMT', aa)]
         return True
-    if b[0] == 'YIELD_VALUE' and len(b) == 1:
+    if pos__b[0] == 'YIELD_VALUE' and len(pos__b) == 1:
         cmds[i:i+2] = [('!YIELD_VALUE', aa)]
         return True
-    if b[0] == 'RAISE_VARARGS':
-        if len(b) == 2 and b[1] == 1 and c[0] == 'POP_TOP':
+    if pos__b[0] == 'RAISE_VARARGS':
+        if len(pos__b) == 2 and pos__b[1] == 1 and pos__c[0] == 'POP_TOP':
             cmds[i:i+3] = [('RAISE_VARARGS_STMT', 0, (aa,))]
             return True
-        if len(b) == 3 and b[1] == 1 and c[0] == 'POP_TOP':
-            cmds[i:i+3] = [('RAISE_VARARGS_STMT', 0, (aa,)+ b[2])]
+        if len(pos__b) == 3 and pos__b[1] == 1 and pos__c[0] == 'POP_TOP':
+            cmds[i:i+3] = [('RAISE_VARARGS_STMT', 0, (aa,)+ pos__b[2])]
             return True
-        if len(b) == 2 and b[1] == 1:
+        if len(pos__b) == 2 and pos__b[1] == 1:
             cmds[i:i+2] = [('RAISE_VARARGS', 0, (aa,))]
             return True
-        if len(b) == 2 and b[1] >= 1:
-            cmds[i:i+2] = [('RAISE_VARARGS', b[1]-1, (aa,))]
+        if len(pos__b) == 2 and pos__b[1] >= 1:
+            cmds[i:i+2] = [('RAISE_VARARGS', pos__b[1]-1, (aa,))]
             return True
-        if len(b) == 3 and b[1] >= 1:
-            cmds[i:i+2] = [('RAISE_VARARGS', b[1]-1, (aa,) + b[2])]
+        if len(pos__b) == 3 and pos__b[1] >= 1:
+            cmds[i:i+2] = [('RAISE_VARARGS', pos__b[1]-1, (aa,) + pos__b[2])]
             return True
-    if b[0] in recode_unary:
-        cmds[i:i+2] = [('!' +recode_unary[b[0]], aa)]
+    if pos__b[0] in recode_unary:
+        cmds[i:i+2] = [('!' +recode_unary[pos__b[0]], aa)]
         return True    
-    if b[0] == 'UNARY_NOT':
+    if pos__b[0] == 'UNARY_NOT':
         cmds[i:i+2] = [Not(aa)]
         return True
-    if b[0][:6] == 'UNARY_':
-        cmds[i:i+2] = [('!1' + b[0][6:], aa)]
+    if pos__b[0][:6] == 'UNARY_':
+        cmds[i:i+2] = [('!1' + pos__b[0][6:], aa)]
         return True
-    if b[0] == 'DELETE_SLICE+0' and len(b) == 1:
+    if pos__b[0] == 'DELETE_SLICE+0' and len(pos__b) == 1:
                 cmds[i:i+2] = [('DELETE_SLICE+0', aa)]
                 return True
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_1')) and b[1] > 0:
-        cmds[i:i+2] =  [(b[0], b[1]-1, (aa,) + b[2], b[3], b[4])]
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_1')) and pos__b[1] > 0:
+        cmds[i:i+2] =  [(pos__b[0], pos__b[1]-1, (aa,) + pos__b[2], pos__b[3], pos__b[4])]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_1')) and b[1] == 0 and b[3] == 0:
-        if len(b[4]) == 0:
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_1')) and pos__b[1] == 0 and pos__b[3] == 0:
+        if len(pos__b[4]) == 0:
 # must be after type dectection             
-            if a[0] =='!LOAD_BUILTIN':
-                cm = attempt_direct_builtin(a[1],b[2], TupleFromArgs(b[2]))
+            if pos__a[0] =='!LOAD_BUILTIN':
+                cm = attempt_direct_builtin(pos__a[1],pos__b[2], TupleFromArgs(pos__b[2]))
                 if cm is not None:
                     cmds[i:i+2] = [cm]
                     return True
-            if len(b[2]) == 0:
+            if len(pos__b[2]) == 0:
                 cmds[i:i+2] =  [('!PyObject_Call', aa, ('CONST',()), ('NULL',))]
                 return True
-            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(b[2]), ('NULL',))]
+            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(pos__b[2]), ('NULL',))]
             return True
         else:
-            if len(b[2]) == 0:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('CONST',()), DictFromArgs(b[4]))]
+            if len(pos__b[2]) == 0:
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('CONST',()), DictFromArgs(pos__b[4]))]
                 return True
-            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(b[2]), DictFromArgs(b[4]))]        
+            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(pos__b[2]), DictFromArgs(pos__b[4]))]        
         return True       
     if SCmp(cmds,i, ('>', 'CALL_FUNCTION_KW')):
-        cmds[i:i+2] =  [('CALL_FUNCTION_KW_1',) + b[1:] + (aa,)]
+        cmds[i:i+2] =  [('CALL_FUNCTION_KW_1',) + pos__b[1:] + (aa,)]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_KW_1')) and b[1] > 0:
-        cmds[i:i+2] =  [(b[0], b[1]-1, (aa,) + b[2], b[3], b[4], b[5])]
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_KW_1')) and pos__b[1] > 0:
+        cmds[i:i+2] =  [(pos__b[0], pos__b[1]-1, (aa,) + pos__b[2], pos__b[3], pos__b[4], pos__b[5])]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_KW_1')) and b[1] == 0 and b[3] == 0:
-        if len(b[4]) == 0:
-            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(b[2]), b[5])]
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_KW_1')) and pos__b[1] == 0 and pos__b[3] == 0:
+        if len(pos__b[4]) == 0:
+            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(pos__b[2]), pos__b[5])]
             return True        
         else:
-            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(b[2]), ('!$PyDict_SymmetricUpdate', DictFromArgs(b[4]), b[5]))]
+            cmds[i:i+2] =  [('!PyObject_Call', aa, TupleFromArgs(pos__b[2]), ('!$PyDict_SymmetricUpdate', DictFromArgs(pos__b[4]), pos__b[5]))]
             return True        
     if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR')):
-        cmds[i:i+2] =  [('CALL_FUNCTION_VAR_1',) + b[1:] + (aa,)]
+        cmds[i:i+2] =  [('CALL_FUNCTION_VAR_1',) + pos__b[1:] + (aa,)]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_1')) and b[1] > 0:
-        cmds[i:i+2] =  [(b[0], b[1]-1, (aa,) + b[2], b[3], b[4], b[5])]
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_1')) and pos__b[1] > 0:
+        cmds[i:i+2] =  [(pos__b[0], pos__b[1]-1, (aa,) + pos__b[2], pos__b[3], pos__b[4], pos__b[5])]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_1')) and b[1] == 0 and b[3] == 0:
-        if len(b[4]) == 0:
-            t = TypeExpr(b[5])
-            if len(b[2]) == 0:
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_1')) and pos__b[1] == 0 and pos__b[3] == 0:
+        if len(pos__b[4]) == 0:
+            t = TypeExpr(pos__b[5])
+            if len(pos__b[2]) == 0:
                 if t == Kl_Tuple:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, b[5], ('NULL',))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, pos__b[5], ('NULL',))]
                 elif t == Kl_List:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', b[5]), ('NULL',))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', pos__b[5]), ('NULL',))]
                 else:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', b[5]), ('NULL',))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', pos__b[5]), ('NULL',))]
                 return True
             if t == Kl_Tuple:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), b[5]), ('NULL',))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), pos__b[5]), ('NULL',))]
             elif t == Kl_List:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PyList_AsTuple', b[5])), ('NULL',))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PyList_AsTuple', pos__b[5])), ('NULL',))]
             else:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PySequence_Tuple', b[5])), ('NULL',))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PySequence_Tuple', pos__b[5])), ('NULL',))]
             return True        
         else:
-            t = TypeExpr(b[5])
-            if len(b[2]) == 0:
+            t = TypeExpr(pos__b[5])
+            if len(pos__b[2]) == 0:
                 if t == Kl_Tuple:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, b[5], DictFromArgs(b[4]))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, pos__b[5], DictFromArgs(pos__b[4]))]
                 elif t == Kl_List:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', b[5]), DictFromArgs(b[4]))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', pos__b[5]), DictFromArgs(pos__b[4]))]
                 else:
-                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', b[5]), DictFromArgs(b[4]))]
+                    cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', pos__b[5]), DictFromArgs(pos__b[4]))]
                 return True
 
             if t == Kl_Tuple:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), b[5]), DictFromArgs(b[4]))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), pos__b[5]), DictFromArgs(pos__b[4]))]
             elif t == Kl_List:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PyList_AsTuple', b[5])), DictFromArgs(b[4]))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PyList_AsTuple', pos__b[5])), DictFromArgs(pos__b[4]))]
             else:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PySequence_Tuple', b[5])), DictFromArgs(b[4]))]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PySequence_Tuple', pos__b[5])), DictFromArgs(pos__b[4]))]
             return True        
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_KW_1')) and b[1] > 0:
-        cmds[i:i+2] =  [(b[0], b[1]-1, (aa,) + b[2], b[3], b[4], b[5],b[6])]
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_KW_1')) and pos__b[1] > 0:
+        cmds[i:i+2] =  [(pos__b[0], pos__b[1]-1, (aa,) + pos__b[2], pos__b[3], pos__b[4], pos__b[5],pos__b[6])]
         return True       
-    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_KW_1')) and b[1] == 0 and b[3] == 0:
-        t = TypeExpr(b[5])
-        if len(b[4]) == 0 and len(b[2]) == 0:
+    if SCmp(cmds,i, ('>', 'CALL_FUNCTION_VAR_KW_1')) and pos__b[1] == 0 and pos__b[3] == 0:
+        t = TypeExpr(pos__b[5])
+        if len(pos__b[4]) == 0 and len(pos__b[2]) == 0:
             if t == Kl_Tuple:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, b[5], b[6])]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, pos__b[5], pos__b[6])]
             elif t == Kl_List:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', b[5]), b[6])]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PyList_AsTuple', pos__b[5]), pos__b[6])]
             else:
-                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', b[5]), b[6])]
+                cmds[i:i+2] =  [('!PyObject_Call', aa, ('!PySequence_Tuple', pos__b[5]), pos__b[6])]
             return True        
-        if len(b[2]) > 0: 
+        if len(pos__b[2]) > 0: 
             if t == Kl_Tuple:
-                tup = ('!PyNumber_Add', TupleFromArgs(b[2]), b[5]) 
+                tup = ('!PyNumber_Add', TupleFromArgs(pos__b[2]), pos__b[5]) 
             elif t == Kl_List:
-                tup = ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PyList_AsTuple',b[5])) 
+                tup = ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PyList_AsTuple',pos__b[5])) 
             else:
-                tup = ('!PyNumber_Add', TupleFromArgs(b[2]), ('!PySequence_Tuple',b[5])) 
+                tup = ('!PyNumber_Add', TupleFromArgs(pos__b[2]), ('!PySequence_Tuple',pos__b[5])) 
         else:
-            tup = b[5]
-        if len(b[4]) > 0: 
-            dic = ('!$PyDict_SymmetricUpdate', DictFromArgs(b[4]), b[6])  
+            tup = pos__b[5]
+        if len(pos__b[4]) > 0: 
+            dic = ('!$PyDict_SymmetricUpdate', DictFromArgs(pos__b[4]), pos__b[6])  
         else:
-            dic = b[6]            
+            dic = pos__b[6]            
         cmds[i:i+2] = [('!PyObject_Call', aa, tup, dic)]
         return True       
     if SCmp(cmds,i, ('>', '.L', 'CALL_FUNCTION_1')):
-        rpl(cmds,[a,c])
+        rpl(cmds,[pos__a,pos__c])
         return True
     if SCmp(cmds,i, ('>', 'POP_TOP')):
         rpl(cmds,[('UNPUSH', aa)])
         return True       
     if SCmp(cmds,i, ('>', 'DELETE_ATTR_1')):
-        rpl(cmds,[('DELETE_ATTR_2', aa, ('CONST', b[1]))])
+        rpl(cmds,[('DELETE_ATTR_2', aa, ('CONST', pos__b[1]))])
         return True
     if SCmp(cmds,i, ('>', 'STORE_SLICE+0')):
                 rpl(cmds,[('STORE_SLICE_LV+0', aa)])
                 return True
-    if SCmp(cmds,i, ('>', 'BOXING_UNBOXING', 'UNPACK_SEQ_AND_STORE')) and c[1] == 0:
-        rpl(cmds,[b,a,c])
+    if SCmp(cmds,i, ('>', 'BOXING_UNBOXING', 'UNPACK_SEQ_AND_STORE')) and pos__c[1] == 0:
+        rpl(cmds,[pos__b,pos__a,pos__c])
         return True
     if SCmp(cmds,i, ('>', 'PRINT_ITEM_TO_2', 'POP_TOP')):        
-        rpl(cmds,[('UNPUSH', aa), b])
+        rpl(cmds,[('UNPUSH', aa), pos__b])
         return True
     if SCmp(cmds,i, ('>', 'SET_VARS')):
-        rpl(cmds,[('SET_EXPRS_TO_VARS', b[1], aa)])
+        rpl(cmds,[('SET_EXPRS_TO_VARS', pos__b[1], aa)])
         return True        
     if SCmp(cmds,i, ('>', 'SET_EXPRS_TO_VARS', '=')):
-        rpl(cmds,[('SET_EXPRS_TO_VARS', b[1] + (c,), b[2] + (aa,))])
+        rpl(cmds,[('SET_EXPRS_TO_VARS', pos__b[1] + (pos__c,), pos__b[2] + (aa,))])
         return True        
     if SCmp(cmds,i, ('>', 'SET_EXPRS_TO_VARS', 'SET_VARS')):
-        rpl(cmds,[('SET_EXPRS_TO_VARS', (b[1],) + (c[1],), (b[2],) + (aa,))])
+        rpl(cmds,[('SET_EXPRS_TO_VARS', (pos__b[1],) + (pos__c[1],), (pos__b[2],) + (aa,))])
         return True        
 
     if SCmp(cmds,i, ('>', 'STORE', '=')):
-        if len(b[1]) == len(b[2]) == 1:
-            rpl(cmds,[('SET_EXPRS_TO_VARS', b[1] + (c,), b[2] + (aa,))])
+        if len(pos__b[1]) == len(pos__b[2]) == 1:
+            rpl(cmds,[('SET_EXPRS_TO_VARS', pos__b[1] + (pos__c,), pos__b[2] + (aa,))])
         else:
             assert False   
-            rpl(cmds,[('SET_EXPRS_TO_VARS', (b[1],) + (c,), (b[2],) + (aa,))])
+            rpl(cmds,[('SET_EXPRS_TO_VARS', (pos__b[1],) + (pos__c,), (pos__b[2],) + (aa,))])
         return True       
-    if SCmp(cmds,i, ('>', 'STORE', 'DUP_TOP')) and b[2] == (aa,):
-            rpl(cmds,[('SEQ_ASSIGN_0', 2, b[1], aa)])
+    if SCmp(cmds,i, ('>', 'STORE', 'DUP_TOP')) and pos__b[2] == (aa,):
+            rpl(cmds,[('SEQ_ASSIGN_0', 2, pos__b[1], aa)])
             return True    
-    if SCmp(cmds,i, ('>', 'STORE', 'DUP_TOP')) and b[2] == aa:
-            rpl(cmds,[('SEQ_ASSIGN_0', 2, (b[1],), aa)])
+    if SCmp(cmds,i, ('>', 'STORE', 'DUP_TOP')) and pos__b[2] == aa:
+            rpl(cmds,[('SEQ_ASSIGN_0', 2, (pos__b[1],), aa)])
             return True    
     if SCmp(cmds,i, ('!PyDict_New', 'DUP_TOP', '>', 'ROT_TWO', '>', 'STORE_SUBSCR_0')):
-        rpl(cmds, [('!BUILD_MAP', (cmd2mem(e), cmd2mem(c)))])
+        rpl(cmds, [('!BUILD_MAP', (cmd2mem(pos__e), cmd2mem(pos__c)))])
         return True
     if SCmp(cmds,i, ('!BUILD_MAP', 'DUP_TOP', '>', 'ROT_TWO', '>', 'STORE_SUBSCR_0')):
-        rpl(cmds, [('!BUILD_MAP', a[1] + ((cmd2mem(e), cmd2mem(c)),))])
+        rpl(cmds, [('!BUILD_MAP', pos__a[1] + ((cmd2mem(pos__e), cmd2mem(pos__c)),))])
         return True
-    if b is not None and b[0] == 'JUMP_IF_FALSE':
-        if b[0] == 'JUMP_IF_FALSE' and c[0] == 'POP_TOP' and is_cmdmem(d): 
-            if label(b, e):
-                if OneJump(e[1], cmds):
-                    cmds[i:i+5] = [And_j_s(aa, d)]
+    if pos__b is not None and pos__b[0] == 'JUMP_IF_FALSE':
+        if pos__b[0] == 'JUMP_IF_FALSE' and pos__c[0] == 'POP_TOP' and is_cmdmem(pos__d): 
+            if label(pos__b, pos__e):
+                if OneJump(pos__e[1], cmds):
+                    cmds[i:i+5] = [And_j_s(aa, pos__d)]
                 else:    
-                    cmds[i:i+5] = [And_j_s(aa, d), e]
+                    cmds[i:i+5] = [And_j_s(aa, pos__d), pos__e]
                 return True
-            if e[0] == 'JUMP_IF_FALSE' and b[1] == e[1] and f[0] == 'POP_TOP':
-                cmds[i:i+6] = [And_j_s(aa, d),b,c]
+            if pos__e[0] == 'JUMP_IF_FALSE' and pos__b[1] == pos__e[1] and pos__f[0] == 'POP_TOP':
+                cmds[i:i+6] = [And_j_s(aa, pos__d),pos__b,pos__c]
                 return True
-        if b[0] == 'JUMP_IF_FALSE' and c[0] == 'POP_TOP' and islineblock(d) and\
-            is_cmdmem(e): 
+        if pos__b[0] == 'JUMP_IF_FALSE' and pos__c[0] == 'POP_TOP' and islineblock(pos__d) and\
+            is_cmdmem(pos__e): 
                 del cmds[i+3]
                 return True
 
@@ -3410,224 +3424,224 @@ def process_push(cmds,i,added_pass):
                         'JUMP_IF_FALSE', 'POP_TOP', '>', 'COMPARE_OP', \
                         'RETURN_VALUE', (':', 4,1), 'ROT_TWO', 'POP_TOP',\
                         (':', 1,1), 'RETURN_VALUE')):
-            rpl(cmds, [('RETURN_VALUE', And_j_s(a, \
-                                                New_3Cmp(('!3CMP', d[1], d[2], d[3], h_[1], cmd2mem(g)))))])
+            rpl(cmds, [('RETURN_VALUE', And_j_s(pos__a, \
+                                                New_3Cmp(('!3CMP', pos__d[1], pos__d[2], pos__d[3], pos__h[1], cmd2mem(pos__g)))))])
             return True
 
         if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE', 'POP_TOP',\
                         'JUMP_IF2_TRUE_POP_CONTINUE', '>', (':', 1,1),\
-                        'JUMP_IF_TRUE_POP_CONTINUE')) and d[1] == g[1]:
-                rpl(cmds,[And_j_s(a, Or_j_s(d[2],e)),g])
+                        'JUMP_IF_TRUE_POP_CONTINUE')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[And_j_s(pos__a, Or_j_s(pos__d[2],pos__e)),pos__g])
                 return True       
         if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE', 'POP_TOP',\
                         'JUMP_IF2_TRUE_POP', '>', (':', 1,1),\
-                        'JUMP_IF_TRUE_POP')) and d[1] == g[1]:
-                rpl(cmds,[And_j_s(a, Or_j_s(d[2],e)),g])
+                        'JUMP_IF_TRUE_POP')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[And_j_s(pos__a, Or_j_s(pos__d[2],pos__e)),pos__g])
                 return True       
         if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE', 'POP_TOP', 'JUMP_IF2_FALSE_POP', \
                         '>', (':', 1,1), 'JUMP_IF_TRUE', 'POP_TOP', (':', 3, 1),\
                         '>', ('::', 6))): 
-                temp1 = And_j_s(a, d[2])         
-                temp2 = And_j_s(temp1, e)
-                rpl(cmds,[Or_j_s(temp2, j_)])
+                temp1 = And_j_s(pos__a, pos__d[2])         
+                temp2 = And_j_s(temp1, pos__e)
+                rpl(cmds,[Or_j_s(temp2, pos__j)])
                 return True 
-        if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE', 'POP_TOP', '>', 'JUMP')) and b[1] == e[1]:
-                rpl(cmds, [And_j_s(a, d), e])
+        if SCmp(cmds,i, ('>', 'JUMP_IF_FALSE', 'POP_TOP', '>', 'JUMP')) and pos__b[1] == pos__e[1]:
+                rpl(cmds, [And_j_s(pos__a, pos__d), pos__e])
                 return True
-    if b is not None and b[0] == 'JUMP_IF_TRUE':
-        if b[0] == 'JUMP_IF_TRUE' and c[0] == 'POP_TOP' and is_cmdmem(d): 
-            if label(b, e):
-                if OneJump(e[1], cmds):
-                    cmds[i:i+5] = [Or_j_s(aa, d)]
+    if pos__b is not None and pos__b[0] == 'JUMP_IF_TRUE':
+        if pos__b[0] == 'JUMP_IF_TRUE' and pos__c[0] == 'POP_TOP' and is_cmdmem(pos__d): 
+            if label(pos__b, pos__e):
+                if OneJump(pos__e[1], cmds):
+                    cmds[i:i+5] = [Or_j_s(aa, pos__d)]
                 else:
-                    cmds[i:i+5] = [Or_j_s(aa, d), e]
+                    cmds[i:i+5] = [Or_j_s(aa, pos__d), pos__e]
                 return True
-            if e[0] == 'JUMP_IF_TRUE' and b[1] == e[1] and f[0] == 'POP_TOP':
-                cmds[i:i+6] = [Or_j_s(aa, d),b,c]
+            if pos__e[0] == 'JUMP_IF_TRUE' and pos__b[1] == pos__e[1] and pos__f[0] == 'POP_TOP':
+                cmds[i:i+6] = [Or_j_s(aa, pos__d),pos__b,pos__c]
                 return True
         if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', '3CMP_BEG_3', \
                         'JUMP_IF_FALSE', 'POP_TOP', '>', 'COMPARE_OP', \
                         'RETURN_VALUE', (':', 4,1), 'ROT_TWO', 'POP_TOP',\
                         (':', 1,1), 'RETURN_VALUE')):
-            rpl(cmds, [('RETURN_VALUE', Or_j_s(a, \
-                                                New_3Cmp(('!3CMP', d[1], d[2], d[3], h_[1], cmd2mem(g)))))])
+            rpl(cmds, [('RETURN_VALUE', Or_j_s(pos__a, \
+                                                New_3Cmp(('!3CMP', pos__d[1], pos__d[2], pos__d[3], pos__h[1], cmd2mem(pos__g)))))])
             return True
         if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', 'JUMP_IF2_FALSE_POP', \
                         '>', 'JUMP_IF_TRUE', 'POP_TOP', (':', 3, 1), \
-                        '>', (':', 1, 2))) and b[1] == f[1] and CntJump(j_[1],cmds) == 2:
-                rpl(cmds,[Or_j_s(a, Or_j_s(And_j_s(d[2], e), i_))])
+                        '>', (':', 1, 2))) and pos__b[1] == pos__f[1] and CntJump(pos__j[1],cmds) == 2:
+                rpl(cmds,[Or_j_s(pos__a, Or_j_s(And_j_s(pos__d[2], pos__e), pos__i))])
                 return True                                           
         if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', 'JUMP_IF2_FALSE_POP', \
-                        '>', (':', 1,1), 'JUMP_IF_FALSE_POP')) and d[1] == g[1]:
-            rpl(cmds,[Or_j_s(aa, And_j_s(d[2],e)),g])
+                        '>', (':', 1,1), 'JUMP_IF_FALSE_POP')) and pos__d[1] == pos__g[1]:
+            rpl(cmds,[Or_j_s(aa, And_j_s(pos__d[2],pos__e)),pos__g])
             return True
         if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', 'JUMP_IF2_FALSE_POP_CONTINUE', \
-                    '>', (':', 1, 1), '=', 'ju')) and d[1] == h_[1]:
+                    '>', (':', 1, 1), '=', 'ju')) and pos__d[1] == pos__h[1]:
 # re.match_nl or (match_bol and re.nullable)
-            rpl(cmds,[Or_j_s(a, And_j_s(d[2],e)),g,h_])
+            rpl(cmds,[Or_j_s(pos__a, And_j_s(pos__d[2],pos__e)),pos__g,pos__h])
             return True       
-        if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', '>', 'JUMP')) and b[1] == e[1]:
-                rpl(cmds, [Or_j_s(a, d), e])
+        if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', '>', 'JUMP')) and pos__b[1] == pos__e[1]:
+                rpl(cmds, [Or_j_s(pos__a, pos__d), pos__e])
                 return True
         if SCmp(cmds,i, ('>', 'JUMP_IF_TRUE', 'POP_TOP', 'JUMP_IF2_TRUE_POP', \
                         'LOAD_CONST', (':', 1, 1), 'STORE_FAST', ('::', 3))) and\
-                        d[2][0] == 'FAST' and d[2][1] == g[1]:
-                rpl(cmds, [Or_j_s(Or_j_s(a, d[2]), e),g])
+                        pos__d[2][0] == 'FAST' and pos__d[2][1] == pos__g[1]:
+                rpl(cmds, [Or_j_s(Or_j_s(pos__a, pos__d[2]), pos__e),pos__g])
                 return True
 
     return False
 
 def process_push2(cmds,i,added_pass):
-    aa = cmd2mem(a)
-    bb = cmd2mem(b)
+    aa = cmd2mem(pos__a)
+    bb = cmd2mem(pos__b)
 
-    if c[0] == 'BUILD_SLICE' and len(c) == 2 and c[1] == 2:
+    if pos__c[0] == 'BUILD_SLICE' and len(pos__c) == 2 and pos__c[1] == 2:
             cmds[i:i+3] = [('!PySlice_New', aa, bb, 'NULL')]
             return True
-    if c[0] == 'STORE_MAP':
+    if pos__c[0] == 'STORE_MAP':
         cmds[i:i+3] = [('STORE_MAP', bb, aa)]
         return True
-    if c[0] == 'ROT_TWO' and d[0] == 'STORE_ATTR_1':
-        cmds[i:i+4] = [('STORE', (('PyObject_SetAttr', aa, ('CONST', d[1])),), (b,))]
+    if pos__c[0] == 'ROT_TWO' and pos__d[0] == 'STORE_ATTR_1':
+        cmds[i:i+4] = [('STORE', (('PyObject_SetAttr', aa, ('CONST', pos__d[1])),), (pos__b,))]
         return True
     if SCmp(cmds,i, ('>','>', '>', 'BUILD_CLASS')):
-            rpl(cmds,[('!_PyEval_BuildClass', cmd2mem(c), bb, aa)])
+            rpl(cmds,[('!_PyEval_BuildClass', cmd2mem(pos__c), bb, aa)])
             return True
     if SCmp(cmds,i, ('>','>', 'ROT_TWO')):
-        cmds[i:i+3] = [b[:], a[:]]
+        cmds[i:i+3] = [pos__b[:], pos__a[:]]
         return True
     
-    if c[0] == 'DELETE_SLICE+1' and len(c) == 1:
+    if pos__c[0] == 'DELETE_SLICE+1' and len(pos__c) == 1:
         cmds[i:i+3] = [('DELETE_SLICE+1', aa, bb)]
         return True
-    if c[0] == 'IMPORT_NAME' and len(c) == 2:
-            cmds[i:i+3] = [('!IMPORT_NAME', c[1], aa, bb)]
+    if pos__c[0] == 'IMPORT_NAME' and len(pos__c) == 2:
+            cmds[i:i+3] = [('!IMPORT_NAME', pos__c[1], aa, bb)]
             return True
-    if c[0] == 'COMPARE_OP':
-        cmds[i:i+3] = process_compare_op(c[1],a,b)
+    if pos__c[0] == 'COMPARE_OP':
+        cmds[i:i+3] = process_compare_op(pos__c[1],pos__a,pos__b)
         return True
-    if c[0] == 'LIST_APPEND' and len(c) == 1:
+    if pos__c[0] == 'LIST_APPEND' and len(pos__c) == 1:
             cmds[i:i+3] = [('PyList_Append', aa, bb)]
             return True
-    if c[0] == 'SLICE+1' and len(c) == 1:
+    if pos__c[0] == 'SLICE+1' and len(pos__c) == 1:
             if isintconst(bb):
                 cmds[i:i+3] = [('!PySequence_GetSlice', aa, bb[1], 'PY_SSIZE_T_MAX')]
             else:    
                 cmds[i:i+3] = [('!_PyEval_ApplySlice', aa, bb, 'NULL')]
             return True
-    if c[0] == 'SLICE+2' and len(c) == 1:
+    if pos__c[0] == 'SLICE+2' and len(pos__c) == 1:
             if isintconst(bb):
                 cmds[i:i+3] = [('!PySequence_GetSlice', aa, 0, bb[1])]
             else:    
                 cmds[i:i+3] = [('!_PyEval_ApplySlice', aa, 'NULL', bb)]
             return True
-    ## if c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
+    ## if pos__c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
         ## type(bb[1]) is int and bb[1] >= 0:        
             ## cmds[i:i+3] = [('!from_ceval_BINARY_ADD_Int', aa, bb[1], bb)]
             ## return True
-    if c[0] == 'BINARY_MODULO' and aa[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_MODULO' and aa[0] == 'CONST' and \
         type(aa[1]) is str and bb[0] == '!BUILD_TUPLE':        
             cmds[i:i+3] = [('!PyString_Format', aa, bb)]
             return True
-    if c[0] == 'BINARY_MULTIPLY' and (aa[0] == '!STR_CONCAT' or (aa[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_MULTIPLY' and (aa[0] == '!STR_CONCAT' or (aa[0] == 'CONST' and \
         (type(aa[1]) is str or type(aa[1]) is list or type(aa[1]) is tuple))):
             cmds[i:i+3] = [('!PySequence_Repeat', aa, bb)]
             return True
-    if c[0] == 'BINARY_ADD' and aa[0] == '!STR_CONCAT' and bb[0] == '!STR_CONCAT':        
+    if pos__c[0] == 'BINARY_ADD' and aa[0] == '!STR_CONCAT' and bb[0] == '!STR_CONCAT':        
             cmds[i:i+3] = [aa + bb[1:]]
             return True
-    if c[0] == 'BINARY_ADD' and aa[0] == '!PyNumber_Add' and bb[0] == '!STR_CONCAT':        
+    if pos__c[0] == 'BINARY_ADD' and aa[0] == '!PyNumber_Add' and bb[0] == '!STR_CONCAT':        
             cmds[i:i+3] = [(bb[0], aa[1], aa[2]) + bb[1:]]
             return True
-    if c[0] == 'BINARY_ADD' and bb[0] == '!PyNumber_Add' and aa[0] == '!STR_CONCAT':        
+    if pos__c[0] == 'BINARY_ADD' and bb[0] == '!PyNumber_Add' and aa[0] == '!STR_CONCAT':        
             cmds[i:i+3] = [(aa[0], aa[1], aa[2]) + bb[1:]]
             return True
-    if c[0] == 'BINARY_ADD' and bb[0] == '!STR_CONCAT':        
+    if pos__c[0] == 'BINARY_ADD' and bb[0] == '!STR_CONCAT':        
             cmds[i:i+3] = [('!STR_CONCAT', aa) + bb[1:]]
             return True
-    if c[0] == 'BINARY_ADD' and aa[0] == '!STR_CONCAT':        
+    if pos__c[0] == 'BINARY_ADD' and aa[0] == '!STR_CONCAT':        
             cmds[i:i+3] = [aa + (bb,)]
             return True
-    if c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
         type(bb[1]) is str and aa[0] == '!PyNumber_Add':        
             cmds[i:i+3] = [('!STR_CONCAT', aa[1], aa[2], bb)]
             return True
-    if c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_ADD' and bb[0] == 'CONST' and \
         type(bb[1]) is str:        
             cmds[i:i+3] = [('!STR_CONCAT', aa, bb)]
             return True
-    if c[0] == 'BINARY_ADD' and aa[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_ADD' and aa[0] == 'CONST' and \
         type(aa[1]) is str:        
             cmds[i:i+3] = [('!STR_CONCAT', aa, bb)]
             return True
-    if c[0] == 'BINARY_SUBSCR' and bb[0] == 'CONST' and \
+    if pos__c[0] == 'BINARY_SUBSCR' and bb[0] == 'CONST' and \
         type(bb[1]) is int: # and bb[1] >= 0:        
             cmds[i:i+3] = [('!BINARY_SUBSCR_Int', aa, bb)]
             return True
-    if c[0] == 'BINARY_SUBSCR' :        
+    if pos__c[0] == 'BINARY_SUBSCR' :        
             cmds[i:i+3] = [('!from_ceval_BINARY_SUBSCR', aa, bb)]
             return True
-    if c[0] in recode_binary:
-        if recode_binary[c[0]] == 'PyNumber_Power+Py_None':
+    if pos__c[0] in recode_binary:
+        if recode_binary[pos__c[0]] == 'PyNumber_Power+Py_None':
             cmds[i:i+3] = [('!PyNumber_Power', aa, bb, 'Py_None')]
         else:    
-            cmds[i:i+3] = [('!' +recode_binary[c[0]], aa, bb)]
+            cmds[i:i+3] = [('!' +recode_binary[pos__c[0]], aa, bb)]
         return True
-    if c[0] == 'INPLACE_POWER':
+    if pos__c[0] == 'INPLACE_POWER':
             cmds[i:i+3] = [('!PyNumber_InPlacePower', aa, bb, 'Py_None')]
             return True
-    if c[0] in recode_inplace:
-            cmds[i:i+3] = [('!' +recode_inplace[c[0]], aa, bb)]
+    if pos__c[0] in recode_inplace:
+            cmds[i:i+3] = [('!' +recode_inplace[pos__c[0]], aa, bb)]
             return True
-    if c[0][:8] == 'INPLACE_':
-            cmds[i:i+3] = [('!#=' + c[0][8:], aa, bb)]
+    if pos__c[0][:8] == 'INPLACE_':
+            cmds[i:i+3] = [('!#=' + pos__c[0][8:], aa, bb)]
             return True
-    if c[0] == 'DELETE_SUBSCR' and len(c) == 1:
+    if pos__c[0] == 'DELETE_SUBSCR' and len(pos__c) == 1:
             cmds[i:i+3] = [('DELETE_SUBSCR', aa, bb)]
             return True
-    if c[0] == 'DUP_TOPX' and c[1] == 2:
-        cmds[i:i+3] = [a,b,a,b]
+    if pos__c[0] == 'DUP_TOPX' and pos__c[1] == 2:
+        cmds[i:i+3] = [pos__a,pos__b,pos__a,pos__b]
         return True
     if SCmp(cmds,i, ('>', '>', '=', '=')):
-                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (c,d), (bb,aa))]
+                cmds[i:i+4] = [('SET_EXPRS_TO_VARS', (pos__c,pos__d), (bb,aa))]
                 return True
-    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_KW_1')) and c[3] > 0:
-        cmds[i:i+3] =  [(c[0], c[1], c[2], c[3]-1, c[4] + ((aa, bb),), c[5])]
+    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_KW_1')) and pos__c[3] > 0:
+        cmds[i:i+3] =  [(pos__c[0], pos__c[1], pos__c[2], pos__c[3]-1, pos__c[4] + ((aa, bb),), pos__c[5])]
         return True       
-    if  is_cmdmem(c):    
-        cc = cmd2mem(c)
-        if d[0] == 'STORE_SUBSCR_0':
+    if  is_cmdmem(pos__c):    
+        cc = cmd2mem(pos__c)
+        if pos__d[0] == 'STORE_SUBSCR_0':
                 cmds[i:i+4] = [('STORE',(('PyObject_SetItem', bb, cc),), (aa,))]
                 return True
-        if d[0] == 'SLICE+3' and len(d) == 1:
+        if pos__d[0] == 'SLICE+3' and len(pos__d) == 1:
                 cmds[i:i+4] = [('!_PyEval_ApplySlice',) + (aa,) + (bb,) + (cc,)]
                 return True
-        if d[0] == 'BUILD_SLICE' and len(d) == 2 and d[1] == 3:
+        if pos__d[0] == 'BUILD_SLICE' and len(pos__d) == 2 and pos__d[1] == 3:
                 cmds[i:i+4] = [('!PySlice_New', aa, bb, cc)]
                 return True
-        if d[0] == 'DELETE_SLICE+3':
+        if pos__d[0] == 'DELETE_SLICE+3':
             cmds[i:i+4] = [('DELETE_SLICE+3', aa, bb, cc)]
             return True
-        if d[0] == 'DUP_TOPX' and d[1] == 3:
-            cmds[i:i+4] = [a,b,c,a,b,c]
+        if pos__d[0] == 'DUP_TOPX' and pos__d[1] == 3:
+            cmds[i:i+4] = [pos__a,pos__b,pos__c,pos__a,pos__b,pos__c]
             return True
-        if d[0] == 'ROT_THREE' and e[0] in ('STORE_SUBSCR_0', 'STORE_SLICE+2', 'STORE_SLICE+1'):
-            cmds[i:i+4] = [c,a,b]
+        if pos__d[0] == 'ROT_THREE' and pos__e[0] in ('STORE_SUBSCR_0', 'STORE_SLICE+2', 'STORE_SLICE+1'):
+            cmds[i:i+4] = [pos__c,pos__a,pos__b]
             return True
         if SCmp(cmds,i, ('>','>', '>', '=', '=', '=')):
-                    cmds[i:i+6] = [('SET_EXPRS_TO_VARS', (d,e,f), (cc,bb,aa))]
+                    cmds[i:i+6] = [('SET_EXPRS_TO_VARS', (pos__d,pos__e,pos__f), (cc,bb,aa))]
                     return True
         if SCmp(cmds,i, ('>', '>','>', '>', '=', '=', '=', '=')):
-                    cmds[i:i+8] = [('SET_EXPRS_TO_VARS', (e,f,g,h_), (cmd2mem(d),cc,bb,aa))]
+                    cmds[i:i+8] = [('SET_EXPRS_TO_VARS', (pos__e,pos__f,pos__g,pos__h), (cmd2mem(pos__d),cc,bb,aa))]
                     return True
         if SCmp(cmds,i, ('>', '>', '>','>', '>', '=', '=', '=', '=', '=')):
-                    cmds[i:i+10] = [('SET_EXPRS_TO_VARS', (f,g,h_,i_,j_), (cmd2mem(e),cmd2mem(d),cc,bb,aa))]
+                    cmds[i:i+10] = [('SET_EXPRS_TO_VARS', (pos__f,pos__g,pos__h,pos__i,pos__j), (cmd2mem(pos__e),cmd2mem(pos__d),cc,bb,aa))]
                     return True
         if SCmp(cmds,i, ('>', '>', '>', '>','>', '>', '=', '=', '=', '=', '=', '=')):
-                    cmds[i:i+12] = [('SET_EXPRS_TO_VARS', (g,h_,i_,j_,k_,l_), (cmd2mem(f),cmd2mem(e),cmd2mem(d),cc,bb,aa))]
+                    cmds[i:i+12] = [('SET_EXPRS_TO_VARS', (pos__g,pos__h,pos__i,pos__j,pos__k,pos__l), (cmd2mem(pos__f),cmd2mem(pos__e),cmd2mem(pos__d),cc,bb,aa))]
                     return True
         if SCmp(cmds,i, ('>', '>', '>', 'ROT_THREE', 'ROT_TWO', '=', '=', '=')):
-                    cmds[i:i+8] = [('SET_EXPRS_TO_VARS', (f,g,h_), (aa,bb,cc))]
+                    cmds[i:i+8] = [('SET_EXPRS_TO_VARS', (pos__f,pos__g,pos__h), (aa,bb,cc))]
                     return True
         if SCmp(cmds,i, ('>','>','>', 'EXEC_STMT')):
             rpl(cmds,[('EXEC_STMT_3', aa, bb, cc)])
@@ -3636,29 +3650,29 @@ def process_push2(cmds,i,added_pass):
                     rpl(cmds,[('STORE_SLICE_LV+3', aa, bb, cc)])
                     return True
         if SCmp(cmds,i, ('>', '>', '>', '>', 'ROT_FOUR')):
-                rpl(cmds,[d,a,b,c])
+                rpl(cmds,[pos__d,pos__a,pos__b,pos__c])
                 return True       
         if SCmp(cmds,i, ('>', '>', '>', 'EXEC_STMT')):
                 rpl(cmds,[(aa, bb, cc)])
                 return True       
                 
-    if SCmp(cmds,i, ('>', '>', 'DELETE_SLICE+2')) and len(c) == 1:
-        cmds[i:i+3] = [(c[0], aa, bb)]
+    if SCmp(cmds,i, ('>', '>', 'DELETE_SLICE+2')) and len(pos__c) == 1:
+        cmds[i:i+3] = [(pos__c[0], aa, bb)]
         return True                
     if SCmp(cmds,i, ('>', '>', 'ROT_TWO', '=', '=')):
-                cmds[i:i+5] = [('SET_EXPRS_TO_VARS', (d,e), (aa,bb))]
+                cmds[i:i+5] = [('SET_EXPRS_TO_VARS', (pos__d,pos__e), (aa,bb))]
                 return True
-    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_1')) and c[3] > 0:
-        cmds[i:i+3] =  [(c[0], c[1], c[2], c[3]-1, c[4] + ((aa, bb),))]
+    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_1')) and pos__c[3] > 0:
+        cmds[i:i+3] =  [(pos__c[0], pos__c[1], pos__c[2], pos__c[3]-1, pos__c[4] + ((aa, bb),))]
         return True       
-    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_VAR_1')) and c[3] > 0:
-        rpl(cmds, [(c[0], c[1], c[2], c[3]-1, c[4] + ((aa, bb),), c[5])])
+    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_VAR_1')) and pos__c[3] > 0:
+        rpl(cmds, [(pos__c[0], pos__c[1], pos__c[2], pos__c[3]-1, pos__c[4] + ((aa, bb),), pos__c[5])])
         return True       
     if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_VAR_KW')):
-        cmds[i:i+3] =  [('CALL_FUNCTION_VAR_KW_1',) + c[1:] + (aa,bb)]
+        cmds[i:i+3] =  [('CALL_FUNCTION_VAR_KW_1',) + pos__c[1:] + (aa,bb)]
         return True       
-    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_VAR_KW_1')) and c[3] > 0:
-        cmds[i:i+3] =  [(c[0], c[1], c[2], c[3]-1, c[4] + ((aa, bb),), c[5],c[6])]
+    if SCmp(cmds,i, ('>', '>', 'CALL_FUNCTION_VAR_KW_1')) and pos__c[3] > 0:
+        cmds[i:i+3] =  [(pos__c[0], pos__c[1], pos__c[2], pos__c[3]-1, pos__c[4] + ((aa, bb),), pos__c[5],pos__c[6])]
         return True       
     if SCmp(cmds,i, ('>','>', 'STORE_SLICE+2')):
         rpl(cmds,[('STORE_SLICE_LV+2', aa, bb)])
@@ -3667,17 +3681,17 @@ def process_push2(cmds,i,added_pass):
                 rpl(cmds,[('STORE_SLICE_LV+1', aa, bb)])
                 return True
     if SCmp(cmds,i, ('>','>', 'DUP_TOP', 'ROT_THREE', 'COMPARE_OP')):
-        rpl(cmds, [('3CMP_BEG_3', aa, e[1], bb)])
+        rpl(cmds, [('3CMP_BEG_3', aa, pos__e[1], bb)])
         return True        
     if SCmp(cmds,i, ('>', '>', 'DUP_TOP', 'EXEC_STMT')):
             rpl(cmds,[('EXEC_STMT_3', aa, bb, bb)])
             return True       
 
-    if c[0] == 'PRINT_ITEM_TO_0':
+    if pos__c[0] == 'PRINT_ITEM_TO_0':
         cmds[i:i+3] = [('PRINT_ITEM_TO_2', bb,aa)]
         return True
 
-    if c[0] == 'STORE_SUBSCR_0':
+    if pos__c[0] == 'STORE_SUBSCR_0':
             cmds[i:i+3] = [('PyObject_SetItem',) + (aa,) + (bb,)]
             return True
 
@@ -3685,10 +3699,10 @@ def process_push2(cmds,i,added_pass):
 
 imported_modules = {}
 
-def module_dict_to_type_dict(d):
-    d2 = dict(d)      
-    for k in d.keys():
-        v = d[k]
+def module_dict_to_type_dict(pos__d):
+    d2 = dict(pos__d)      
+    for k in pos__d.keys():
+        v = pos__d[k]
         t = type(v)
         if t is types.InstanceType:
             t2 = None
@@ -3738,20 +3752,20 @@ def CheckExistListImport(nm, fromlist=None,level=-1):
 #        if nm == '':
 #            Fatal('can\'t import empty module')     
         try:
-##            print ';;;', nm 
             if fromlist is None and level == -1 and nm != '':
                 this = __import__(nm)
                 imported_modules[nm] = this
             elif nm == '' and level != -1 and len(fromlist) == 1:
-                this = __import__(fromlist[0])
+                this = __import__()
                 imported_modules[fromlist[0]] = this
             else:    
-                this = __import__(nm, globals(),locals(), fromlist, 1)
+                this = __import__(nm,{},{}, fromlist)
 ##            print this
                 imported_modules[nm] = this
         except:
+            print sys.exc_info()
             if level == -1:
-                Debug('Module %s import unsuccessful2' % nm) 
+                Debug('Module %s import unsuccessful2' % nm, fromlist) 
             else:    
                 Debug('Module %s relative import unsuccessful2' % nm) 
 ##            Fatal('')
@@ -3760,15 +3774,24 @@ def CheckExistListImport(nm, fromlist=None,level=-1):
     nms = nm.split('.')
     s = ''
     old_this = this
-    for i, v in enumerate(nms):
-        if s != '':
-            s += '.'
-            this = d[v]
-        d = this.__dict__
-        s += v    
-        assert type(this) is types.ModuleType    
-        list_import[s] = module_dict_to_type_dict(d)
-        imported_modules[s] = this
+    if fromlist is not None:
+        assert this.__name__ == nm
+        list_import[nm] = module_dict_to_type_dict(this.__dict__)
+        imported_modules[nm] = this
+    else:    
+        for i, v in enumerate(nms):
+            if s != '':
+                s += '.'
+                if v not in pos__d:
+                    if fromlist is None:
+                        Debug('Module %s %s (%s) import unsuccessful3' % (s, v, nm), fromlist) 
+                    break
+                this = pos__d[v]
+            pos__d = this.__dict__
+            s += v    
+            assert type(this) is types.ModuleType    
+            list_import[s] = module_dict_to_type_dict(pos__d)
+            imported_modules[s] = this
     FillListImport(old_this)    
 
 def FillListImport(module, nm = None, list_added = []):
@@ -3808,23 +3831,23 @@ def MyImport(nm):
     if nm not in imported_modules:
         return None, {}
     this = imported_modules[nm]
-    d = this.__dict__
+    pos__d = this.__dict__
     
     if '.' in nm:
         nms = nm.split('.')
-        d = this.__dict__
+        pos__d = this.__dict__
         if hasattr(this, '__file__') and this.__file__.endswith(nms[-1] + '.pyc'):
-            return this, d
+            return this, pos__d
         if this.__name__ == nm:
-            return this, d
+            return this, pos__d
         for i in range(1, len(nms)):
             if nms[i] in this.__dict__ and type(this.__dict__[nms[i]]) is types.ModuleType:
-                this = d[nms[i]]
-                d = this.__dict__
+                this = pos__d[nms[i]]
+                pos__d = this.__dict__
             else:
-                if nms[i] in d:
-                    this = d[nms[i]]
-                    d = this.__dict__
+                if nms[i] in pos__d:
+                    this = pos__d[nms[i]]
+                    pos__d = this.__dict__
                 else:
                     Debug('Import Error', nm, this, i, nms) 
                     return None, {}
@@ -3835,22 +3858,22 @@ def MyImport(nm):
                 ## print this.__dict__[nms[i]]
                 ## print this.__dict__.keys()
 ##                Debug('Import Error', nm, this, i, nms) 
-    return this, d
+    return this, pos__d
 
 ## def get_list_names_module_raw(nm):
 ## #    if nm in known_modules:
     ## try:
-        ## this, d = MyImport(nm)
+        ## this, pos__d = MyImport(nm)
     ## except:
         ## Debug('Module %s import unsuccessful' % nm) #, sys.exc_info(), sys.exc_traceback)     
         ## return {}
-    ## return module_dict_to_type_dict(d)
-    ## ## if '__all__' in d:
+    ## return module_dict_to_type_dict(pos__d)
+    ## ## if '__all__' in pos__d:
         ## ## d2 = {}
-        ## ## for k in d['__all__']:
-            ## ## if k in d:
-                ## ## d2[k] = d[k]
-        ## ## d = d2   
+        ## ## for k in pos__d['__all__']:
+            ## ## if k in pos__d:
+                ## ## d2[k] = pos__d[k]
+        ## ## pos__d = d2   
 
 def make_import_star(aa):
     nm = aa[1]
@@ -3921,20 +3944,20 @@ def val_imp(nm, k):
         return None    
     return d[k]
     
-def _process_compare_op_const(op, a,b):
+def _process_compare_op_const(op, pos__a,pos__b):
     try:
         if op == '==':
-            return('CONST', a[1] == b[1])              
+            return('CONST', pos__a[1] == pos__b[1])              
         if op == '!=':
-            return('CONST', a[1] != b[1])              
+            return('CONST', pos__a[1] != pos__b[1])              
         if op == '>=':
-            return('CONST', a[1] >= b[1])              
+            return('CONST', pos__a[1] >= pos__b[1])              
         if op == '<=':
-            return('CONST', a[1] <= b[1])              
+            return('CONST', pos__a[1] <= pos__b[1])              
         if op == '<':
-            return('CONST', a[1] < b[1])              
+            return('CONST', pos__a[1] < pos__b[1])              
         if op == '>':
-            return('CONST', a[1] > b[1])              
+            return('CONST', pos__a[1] > pos__b[1])              
     except:
         pass    
     return None    
@@ -4001,8 +4024,8 @@ def process_compare_op(op, a,b):
     
 def process_load_const_test1(cmds):
     try:
-        if a[1]:
-            rpl(cmds,[a, ('JUMP',) + b[1:]])
+        if pos__a[1]:
+            rpl(cmds,[pos__a, ('JUMP',) + pos__b[1:]])
         else:    
             rpl(cmds,[])
         return True
@@ -4012,8 +4035,8 @@ def process_load_const_test1(cmds):
 
 def process_load_const_test2(cmds):
     try:
-        if not a[1]:
-            rpl(cmds,[a, ('JUMP',) + b[1:]])
+        if not pos__a[1]:
+            rpl(cmds,[pos__a, ('JUMP',) + pos__b[1:]])
         else:    
             rpl(cmds,[])
         return True
@@ -4023,10 +4046,10 @@ def process_load_const_test2(cmds):
 
 def process_load_const_test3(cmds):
     try:
-        if a[1]:
-            rpl(cmds,[a, ('JUMP',) + b[1:]])
+        if pos__a[1]:
+            rpl(cmds,[pos__a, ('JUMP',) + pos__b[1:]])
         else:    
-            rpl(cmds,[a])
+            rpl(cmds,[pos__a])
         return True
     except:
         pass
@@ -4034,27 +4057,27 @@ def process_load_const_test3(cmds):
 
 def process_load_const_test4(cmds):
     try:
-        if not a[1]:
-            rpl(cmds,[a, ('JUMP',) + b[1:]])
+        if not pos__a[1]:
+            rpl(cmds,[pos__a, ('JUMP',) + pos__b[1:]])
         else:    
-            rpl(cmds,[a])
+            rpl(cmds,[pos__a])
         return True
     except:
         pass
     return False
 
 def process_load_const(cmds,i,added_pass):
-    if a[0] == 'LOAD_CONST' and b[0] == 'UNPACK_SEQUENCE' and a[1] is not None and b[1] == len(a[1]):
-        cmds[i:i+2] = [('LOAD_CONST', x) for x in reversed(a[1])]
+    if pos__a[0] == 'LOAD_CONST' and pos__b[0] == 'UNPACK_SEQUENCE' and pos__a[1] is not None and pos__b[1] == len(pos__a[1]):
+        cmds[i:i+2] = [('LOAD_CONST', x) for x in reversed(pos__a[1])]
         return True
-    if a[0] == 'LOAD_CONST' and b[0] == 'STORE':
-        cmds[i:i+2] = [b, a]
+    if pos__a[0] == 'LOAD_CONST' and pos__b[0] == 'STORE':
+        cmds[i:i+2] = [pos__b, pos__a]
         return True
-    if a[0] == 'LOAD_CONST' and b[0] == 'DUP_TOP':
-        cmds[i:i+2] = [a, a[:]]
+    if pos__a[0] == 'LOAD_CONST' and pos__b[0] == 'DUP_TOP':
+        cmds[i:i+2] = [pos__a, pos__a[:]]
         return True   
     if SCmp(cmds,i, ('LOAD_CONST', '-')):
-        rpl(cmds,[b,a])
+        rpl(cmds,[pos__b,pos__a])
         return True     
     if SCmp(cmds,i,('LOAD_CONST', 'JUMP_IF_TRUE', 'POP_TOP')):
         if process_load_const_test1(cmds):
@@ -4072,392 +4095,392 @@ def process_load_const(cmds,i,added_pass):
 
 def process_j_setup_finally(cmds,i,added_pass):
     if SCmp(cmds,i, ('J_SETUP_FINALLY', '*', 'POP_BLOCK', 'LOAD_CONST', \
-                    (':',0,1), '*', 'END_FINALLY')) and d[1] is None:                                    
-            rpl(cmds,[[('(TRY',), b, (')(FINALLY',), f, (')ENDTRY',)]])
+                    (':',0,1), '*', 'END_FINALLY')) and pos__d[1] is None:                                    
+            rpl(cmds,[[('(TRY',), pos__b, (')(FINALLY',), pos__f, (')ENDTRY',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', '*', 'POP_BLOCK', 'LOAD_CONST', \
-                    (':',0,1), 'END_FINALLY')) and d[1] is None:                                    
-            rpl(cmds,[[('(TRY',), b, (')(FINALLY',), [('PASS',)], (')ENDTRY',)]])
+                    (':',0,1), 'END_FINALLY')) and pos__d[1] is None:                                    
+            rpl(cmds,[[('(TRY',), pos__b, (')(FINALLY',), [('PASS',)], (')ENDTRY',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', 'POP_BLOCK', 'LOAD_CONST', \
-                    (':',0,1), 'END_FINALLY')) and c[1] is None:                                    
+                    (':',0,1), 'END_FINALLY')) and pos__c[1] is None:                                    
             rpl(cmds,[[('(TRY',), [('PASS',)], (')(FINALLY',), [('PASS',)], (')ENDTRY',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', 'JUMP_CONTINUE', 'POP_BLOCK', \
                     'LOAD_CONST', (':', 0, 1), '**n', 'END_FINALLY', \
-                    'JUMP_CONTINUE')) and b[1] == h_[1]:
-            rpl(cmds,[[('(TRY',), [('CONTINUE',)], (')(FINALLY',), f, (')ENDTRY',)],h_])
+                    'JUMP_CONTINUE')) and pos__b[1] == pos__h[1]:
+            rpl(cmds,[[('(TRY',), [('CONTINUE',)], (')(FINALLY',), pos__f, (')ENDTRY',)],pos__h])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', '*n','JUMP_CONTINUE', 'POP_BLOCK', \
                     'LOAD_CONST', (':', 0, 1), '**n', 'END_FINALLY', \
-                    'JUMP_CONTINUE')) and c[1] == i_[1]:
-            rpl(cmds,[[('(TRY',), b + [('CONTINUE',)], (')(FINALLY',), g, (')ENDTRY',)],h_])
+                    'JUMP_CONTINUE')) and pos__c[1] == pos__i[1]:
+            rpl(cmds,[[('(TRY',), pos__b + [('CONTINUE',)], (')(FINALLY',), pos__g, (')ENDTRY',)],pos__h])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', 'POP_BLOCK', 'LOAD_CONST', \
-                    (':',0,1), '*', 'END_FINALLY')) and c[1] is None:                                    
-            rpl(cmds,[[('(TRY',), [('PASS',)], (')(FINALLY',), e, (')ENDTRY',)]])
+                    (':',0,1), '*', 'END_FINALLY')) and pos__c[1] is None:                                    
+            rpl(cmds,[[('(TRY',), [('PASS',)], (')(FINALLY',), pos__e, (')ENDTRY',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', '*r', (':',0,1), '*', 'END_FINALLY')):
-        rpl(cmds,[[('(TRY',), b, (')(FINALLY',), d, (')ENDTRY',)]])
+        rpl(cmds,[[('(TRY',), pos__b, (')(FINALLY',), pos__d, (')ENDTRY',)]])
         return True
     if SCmp(cmds,i, ('J_SETUP_FINALLY', '*n', 'LOAD_CONST', (':',0,1), \
-                    '*', 'END_FINALLY')) and c[1] is None:
-        rpl(cmds,[[('(TRY',), b, (')(FINALLY',), e, (')ENDTRY',)]])
+                    '*', 'END_FINALLY')) and pos__c[1] is None:
+        rpl(cmds,[[('(TRY',), pos__b, (')(FINALLY',), pos__e, (')ENDTRY',)]])
         return True
     return False
 
 def process_j_begin_with(cmds,i,added_pass):
     if SCmp(cmds,i, ('J_BEGIN_WITH', 'POP_BLOCK',('LOAD_CONST', None),\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:],[('PASS',)], (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:],[('PASS',)], (')ENDWITH',)]])
             return True             
     if SCmp(cmds,i, ('J_BEGIN_WITH', '*', 'POP_BLOCK',('LOAD_CONST', None),\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:], b, (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:], pos__b, (')ENDWITH',)]])
             return True             
     if SCmp(cmds,i, ('J_BEGIN_WITH', '*', 'JUMP_CONTINUE', 'POP_BLOCK',('LOAD_CONST', None),\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:], b + [('CONTINUE',)], (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:], pos__b + [('CONTINUE',)], (')ENDWITH',)]])
             return True             
     if SCmp(cmds,i, ('J_BEGIN_WITH', 'JUMP_CONTINUE', 'POP_BLOCK',('LOAD_CONST', None),\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:], [('CONTINUE',)], (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:], [('CONTINUE',)], (')ENDWITH',)]])
             return True             
     if SCmp(cmds,i, ('J_BEGIN_WITH', '*l', 'POP_BLOCK',('LOAD_CONST', None),\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:], [('PASS',)], (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:], [('PASS',)], (')ENDWITH',)]])
             return True             
     if SCmp(cmds,i, ('J_BEGIN_WITH', '*r',\
                     (':', 0, 1), 'WITH_CLEANUP', 'END_FINALLY')):
-            rpl(cmds,[[('(WITH',) + a[2:], b, (')ENDWITH',)]])
+            rpl(cmds,[[('(WITH',) + pos__a[2:], pos__b, (')ENDWITH',)]])
             return True             
     return False
 
 def process_j_setup_loop(cmds,i,added_pass):
-    if a[0] == 'J_SETUP_LOOP':
-        if len(a) == 2 and b[0] == '!GET_ITER' and len(b) == 2:
-            cmds[i:i+2] = [('J_SETUP_LOOP_FOR', a[1], b[1])]
+    if pos__a[0] == 'J_SETUP_LOOP':
+        if len(pos__a) == 2 and pos__b[0] == '!GET_ITER' and len(pos__b) == 2:
+            cmds[i:i+2] = [('J_SETUP_LOOP_FOR', pos__a[1], pos__b[1])]
             return True
-        if len(a) == 3 and b[0] == '!GET_ITER' and len(b) == 2:
-            cmds[i:i+2] = [('.L', a[2]),('J_SETUP_LOOP_FOR', a[1], b[1])]
+        if len(pos__a) == 3 and pos__b[0] == '!GET_ITER' and len(pos__b) == 2:
+            cmds[i:i+2] = [('.L', pos__a[2]),('J_SETUP_LOOP_FOR', pos__a[1], pos__b[1])]
             return True
-        if len(a) == 2 and b[0] == '.L' and c[0] == '!GET_ITER' and len(c) == 2:
-            cmds[i:i+3] = [('J_SETUP_LOOP_FOR', a[1], c[1])]
+        if len(pos__a) == 2 and pos__b[0] == '.L' and pos__c[0] == '!GET_ITER' and len(pos__c) == 2:
+            cmds[i:i+3] = [('J_SETUP_LOOP_FOR', pos__a[1], pos__c[1])]
             return True
-        if len(a) == 3 and b[0] == '.L' and c[0] == '!GET_ITER' and len(c) == 2:
-            cmds[i:i+3] = [('.L', a[2]),('J_SETUP_LOOP_FOR', a[1], c[1])]
+        if len(pos__a) == 3 and pos__b[0] == '.L' and pos__c[0] == '!GET_ITER' and len(pos__c) == 2:
+            cmds[i:i+3] = [('.L', pos__a[2]),('J_SETUP_LOOP_FOR', pos__a[1], pos__c[1])]
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'), 'POP_BLOCK', 'JUMP')) and\
-            a[0] != d[1]:
-            bod = b[1][:-1]
+            pos__a[0] != pos__d[1]:
+            bod = pos__b[1][:-1]
             if len(bod) == 0:
                 bod = [('PASS',)]    
-            cmds[i:i+4] = [[('(WHILE',) + b[0][1:], bod, (')ENDWHILE',)],d]
+            cmds[i:i+4] = [[('(WHILE',) + pos__b[0][1:], bod, (')ENDWHILE',)],pos__d]
             return True
-        if isblock(b) and c[0] == 'POP_BLOCK' and \
-            d[0] == '.:' and d[1] == a[1] and OneJump(d[1], cmds) and len(b) == 3 and\
-            b[0][0] == '(IF' and b[2][0] == ')ENDIF' and type(b[1]) is list:
-            cmds[i:i+4] = [[('(WHILE',) + b[0][1:], b[1], (')ENDWHILE',)]]
+        if isblock(pos__b) and pos__c[0] == 'POP_BLOCK' and \
+            pos__d[0] == '.:' and pos__d[1] == pos__a[1] and OneJump(pos__d[1], cmds) and len(pos__b) == 3 and\
+            pos__b[0][0] == '(IF' and pos__b[2][0] == ')ENDIF' and type(pos__b[1]) is list:
+            cmds[i:i+4] = [[('(WHILE',) + pos__b[0][1:], pos__b[1], (')ENDWHILE',)]]
             return True
-        if b[0] == '.:' and c[0] == 'JUMP_IF2_FALSE_POP' and\
-            isblock(d) and  e[0] in jump and e[1] == b[1] and \
-            f[0] == '.:' and f[1] == c[1] and g[0] == 'POP_BLOCK' and \
-            h_[0] == '.:' and h_[1] == a[1] and\
-            OneJump(b[1], cmds) and\
-            OneJump(f[1], cmds) and\
-            OneJump(h_[1], cmds):
-            cmds[i:i+8] = [[('(WHILE',) + c[2:], d[:], (')ENDWHILE',)]]
+        if pos__b[0] == '.:' and pos__c[0] == 'JUMP_IF2_FALSE_POP' and\
+            isblock(pos__d) and  pos__e[0] in jump and pos__e[1] == pos__b[1] and \
+            pos__f[0] == '.:' and pos__f[1] == pos__c[1] and pos__g[0] == 'POP_BLOCK' and \
+            pos__h[0] == '.:' and pos__h[1] == pos__a[1] and\
+            OneJump(pos__b[1], cmds) and\
+            OneJump(pos__f[1], cmds) and\
+            OneJump(pos__h[1], cmds):
+            cmds[i:i+8] = [[('(WHILE',) + pos__c[2:], pos__d[:], (')ENDWHILE',)]]
             return True
-        if b[0] == '.:' and c[0] == 'JUMP_IF2_FALSE_POP' and\
-            isblock(d) and  e[0] in jump and e[1] == b[1] and \
-            f[0] == '.:' and f[1] == c[1] and g[0] == 'POP_BLOCK' and \
-            h_[0] == '.:' and h_[1] == a[1] and\
-            OneJump(b[1], cmds) and\
-            OneJump(f[1], cmds) and\
-            CntJump(h_[1], cmds) > 1:
-            cmds[i:i+8] = [[('(WHILE',) + c[2:], d[:], (')ENDWHILE',)],h_]
+        if pos__b[0] == '.:' and pos__c[0] == 'JUMP_IF2_FALSE_POP' and\
+            isblock(pos__d) and  pos__e[0] in jump and pos__e[1] == pos__b[1] and \
+            pos__f[0] == '.:' and pos__f[1] == pos__c[1] and pos__g[0] == 'POP_BLOCK' and \
+            pos__h[0] == '.:' and pos__h[1] == pos__a[1] and\
+            OneJump(pos__b[1], cmds) and\
+            OneJump(pos__f[1], cmds) and\
+            CntJump(pos__h[1], cmds) > 1:
+            cmds[i:i+8] = [[('(WHILE',) + pos__c[2:], pos__d[:], (')ENDWHILE',)],pos__h]
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', 'LOAD_FAST', (':', 5, 1),\
                         'J_LOOP_VARS', '*', 'JUMP_CONTINUE', (':',3,1),\
-                        'POP_BLOCK', ('::', 0))) and b[1][0] == '.':
-            rpl(cmds,[[('(FOR_ITER',  d[2], cmd2mem(b)), e, (')ENDFOR_ITER',)]])
+                        'POP_BLOCK', ('::', 0))) and pos__b[1][0] == '.':
+            rpl(cmds,[[('(FOR_ITER',  pos__d[2], cmd2mem(pos__b)), pos__e, (')ENDFOR_ITER',)]])
             return True            
         if SCmp(cmds,i, ('J_SETUP_LOOP', 'JUMP_IF2_FALSE_POP_CONTINUE', '*r',
                         (':', 1, 1), 'POP_BLOCK', ('::',0))):
-                rpl(cmds,[[('(WHILE',) + b[2:] , c, (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[2:] , pos__c, (')ENDWHILE',)]])
                 return True   
         if SCmp(cmds,i, ('J_SETUP_LOOP', 'LOAD_FAST', (':', 5, 1), \
                         'J_FOR_ITER',\
                         '*', 'JUMP_CONTINUE', \
                         (':', 3, 1), 'POP_BLOCK', ('::', 0))) and\
-            e[0][0] == 'UNPACK_SEQ_AND_STORE' and e[0][1] == 0 and b[1][0] == '.':
-                rpl(cmds,[[('(FOR_GENERATOR', e[0][2]), e[1:], (')ENDFOR_GENERATOR',)]])
+            pos__e[0][0] == 'UNPACK_SEQ_AND_STORE' and pos__e[0][1] == 0 and pos__b[1][0] == '.':
+                rpl(cmds,[[('(FOR_GENERATOR', pos__e[0][2]), pos__e[1:], (')ENDFOR_GENERATOR',)]])
                 return True                   
         if SCmp(cmds,i, ('J_SETUP_LOOP', 'LOAD_FAST', (':', 5, 1), \
                         'J_FOR_ITER',\
                         '*', 'JUMP_CONTINUE', \
                         (':', 3, 1), 'POP_BLOCK', ('::', 0))) and\
-            e[0][0] == '.L' and e[1][0] == 'UNPACK_SEQ_AND_STORE' and e[1][1] == 0 and b[1][0] == '.':
-                rpl(cmds,[[('(FOR_GENERATOR', e[1][2]), e[2:], (')ENDFOR_GENERATOR',)]])
+            pos__e[0][0] == '.L' and pos__e[1][0] == 'UNPACK_SEQ_AND_STORE' and pos__e[1][1] == 0 and pos__b[1][0] == '.':
+                rpl(cmds,[[('(FOR_GENERATOR', pos__e[1][2]), pos__e[2:], (')ENDFOR_GENERATOR',)]])
                 return True    
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 3, 1), '*', 'JUMP_CONTINUE', ('::', 0))):
-                rpl(cmds,[[('(WHILE', TRUE), c, (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE', TRUE), pos__c, (')ENDWHILE',)]])
                 return True     
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 4,1), 'JUMP_IF2_FALSE_POP', '*',\
                         'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', ('::', 0))) :
-                rpl(cmds, [[('(WHILE',) + c[2:], d, (')ENDWHILE',)]])
+                rpl(cmds, [[('(WHILE',) + pos__c[2:], pos__d, (')ENDWHILE',)]])
                 return True   
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 4, 1), 'JUMP_IF2_TRUE_POP', \
                         '*', 'JUMP_CONTINUE', (':',2, 1), 'POP_BLOCK', ('::',0))):
-            rpl(cmds,[[('(WHILE', Not(c[2])), d, (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', Not(pos__c[2])), pos__d, (')ENDWHILE',)]])
             return True
     # {'*' removed
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'), \
                         'POP_BLOCK', '*r', (':',0,1), '*r')):
-                rpl(cmds,[[('(WHILE', b[0][1]), b[1], (')(ELSE',), d, (')ENDWHILE',)],f])
+                rpl(cmds,[[('(WHILE', pos__b[0][1]), pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)],pos__f])
                 return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*r', ')ENDIF'), \
                         'POP_BLOCK', '*r', (':',0,1), '*r')):
-                rpl(cmds,[[('(WHILE', b[0][1]), b[1], (')(ELSE',), d, (')ENDWHILE',)],f])
+                rpl(cmds,[[('(WHILE', pos__b[0][1]), pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)],pos__f])
                 return True
     # }end '*' removed
         if SCmp(cmds,i, ('J_SETUP_LOOP',  (':', 3, 1), '*', 'JUMP_CONTINUE')):
-            rpl(cmds,[[('(WHILE', TRUE), c, (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', TRUE), pos__c, (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', '*r', (':', 0,1), 'POP_BLOCK')):
-            rpl(cmds,[[('(WHILE', TRUE), b, (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', TRUE), pos__b, (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', '*n', ('::', 0))):
-            rpl(cmds,[[('(WHILE', TRUE), b, (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', TRUE), pos__b, (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', '*r', ('::', 0))):
-            rpl(cmds,[[('(WHILE', TRUE), b, (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', TRUE), pos__b, (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
                         'POP_BLOCK', '*n', ('::', 0))):
-                rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')(ELSE',),d,(')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')(ELSE',),pos__d,(')ENDWHILE',)]])
                 return True   
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 2, 1), 'JUMP_IF2_TRUE_POP_CONTINUE', \
                         'POP_BLOCK', ('::', 0))):
-            rpl(cmds,[[('(WHILE',) + c[2:], [('PASS',)],(')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE',) + pos__c[2:], [('PASS',)],(')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'), 'POP_BLOCK',\
-                        'ju')) and d[1] == a[1]:
-            bod = b[1][:-1]
+                        'ju')) and pos__d[1] == pos__a[1]:
+            bod = pos__b[1][:-1]
             if len(bod) == 0:
                 bod = [('PASS',)]    
-            rpl(cmds,[[('(WHILE',) + b[0][1:], bod,(')ENDWHILE',)],d])
+            rpl(cmds,[[('(WHILE',) + pos__b[0][1:], bod,(')ENDWHILE',)],pos__d])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 4,1), 'JUMP_IF2_FALSE_POP', \
                         '*n', 'J_SETUP_LOOP', (':', 7, 1), '*n', 'JUMP', \
                         (':', 2,1), 'POP_BLOCK', ('::', 0))):
-                rpl(cmds,[[('(WHILE',) + c[2:], d + [('(WHILE', TRUE), g, (')ENDWHILE',)], (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__c[2:], pos__d + [('(WHILE', TRUE), pos__g, (')ENDWHILE',)], (')ENDWHILE',)]])
                 return True       
         ## if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\ # By CloneDigger
                         ## 'POP_BLOCK', '*n', ('::',0))):
-                ## rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')(ELSE',), d, (')ENDWHILE',)]])
+                ## rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)]])
                 ## return True       
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
-                        'POP_BLOCK', '*n', 'jc')) and a[1] == e[1]:
-                rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')(ELSE',), d, (')ENDWHILE',)]])
+                        'POP_BLOCK', '*n', 'jc')) and pos__a[1] == pos__e[1]:
+                rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)]])
                 return True       
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
                         'POP_BLOCK', '*r', ('::',0))):
-                rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')(ELSE',), d, (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)]])
                 return True       
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*r', ')ENDIF'),\
                         'POP_BLOCK', '*n', ('::',0))):
-                rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')(ELSE',), d, (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')(ELSE',), pos__d, (')ENDWHILE',)]])
                 return True    
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'), \
                         'POP_BLOCK', ('::', 0))):       #  4
-                rpl(cmds,[[('(WHILE',) + b[0][1:], b[1], (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[0][1:], pos__b[1], (')ENDWHILE',)]])
                 return True       
         if SCmp(cmds,i, ('J_SETUP_LOOP', ('!', '.L', '(IF', '*c', ')ENDIF'), \
                         'POP_BLOCK', ('::', 0))):       #  4
-                rpl(cmds,[[('(WHILE',) + b[1][1:], b[2], (')ENDWHILE',)]])
+                rpl(cmds,[[('(WHILE',) + pos__b[1][1:], pos__b[2], (')ENDWHILE',)]])
                 return True       
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 2, 1), 'JUMP_CONTINUE', ('::', 0))):
             rpl(cmds,[[('(WHILE', TRUE), [('PASS',)], (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 2,1), 'JUMP_IF2_TRUE_POP_CONTINUE',\
                         'POP_BLOCK', ('::', 0))):
-            rpl(cmds,[[('(WHILE',) + c[2:], [('PASS',)], (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE',) + pos__c[2:], [('PASS',)], (')ENDWHILE',)]])
             return True
         if SCmp(cmds,i, ('J_SETUP_LOOP', (':', 2,1), 'JUMP_IF2_FALSE_POP_CONTINUE',\
                         'POP_BLOCK', ('::', 0))):
-            rpl(cmds,[[('(WHILE', Not(c[2])), [('PASS',)], (')ENDWHILE',)]])
+            rpl(cmds,[[('(WHILE', Not(pos__c[2])), [('PASS',)], (')ENDWHILE',)]])
             return True
     return False
 
 def process_jump(cmds,i, added_pass):
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
-    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP')) and a[2] == b[2]:
-        rpl(cmds,[a])
+    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP')) and pos__a[2] == pos__b[2]:
+        rpl(cmds,[pos__a])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP')) and a[2] == b[2]:
-        rpl(cmds,[a])
+    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP')) and pos__a[2] == pos__b[2]:
+        rpl(cmds,[pos__a])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_FALSE_POP', a[1], And_j(a[2], b[2]))])
+    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_FALSE_POP', pos__a[1], And_j(pos__a[2], pos__b[2]))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_TRUE_POP', a[1], Or_j(a[2], b[2]))])
+    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_TRUE_POP', pos__a[1], Or_j(pos__a[2], pos__b[2]))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_FALSE_POP')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_TRUE_POP', a[1], Or_j(a[2], Not(b[2])))])
+    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP', 'JUMP_IF2_FALSE_POP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_TRUE_POP', pos__a[1], Or_j(pos__a[2], Not(pos__b[2])))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_IF2_FALSE_POP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', a[1], And_j(a[2], b[2]))])
+    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_IF2_FALSE_POP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', pos__a[1], And_j(pos__a[2], pos__b[2]))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP_CONTINUE', 'JUMP_IF2_TRUE_POP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE', a[1], Or_j(a[2], b[2]))])
+    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP_CONTINUE', 'JUMP_IF2_TRUE_POP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE', pos__a[1], Or_j(pos__a[2], pos__b[2]))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP_CONTINUE', 'JUMP_IF2_FALSE_POP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE', a[1], Or_j(a[2], Not(b[2]) ))])
+    if SCmp(cmds,i,('JUMP_IF2_TRUE_POP_CONTINUE', 'JUMP_IF2_FALSE_POP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE', pos__a[1], Or_j(pos__a[2], Not(pos__b[2]) ))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_FALSE_POP', a[1], And_j(a[2], Not(b[2])))])
+    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_FALSE_POP', pos__a[1], And_j(pos__a[2], Not(pos__b[2])))])
         return True
-    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_IF2_TRUE_POP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', a[1], And_j(a[2], Not(b[2])))])
+    if SCmp(cmds,i,('JUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_IF2_TRUE_POP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', pos__a[1], And_j(pos__a[2], Not(pos__b[2])))])
         return True
     if SCmp(cmds,i,('xJUMP_IF2_FALSE_POP', '*', 'ju', (':', 0,1), '*', ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), e, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), pos__e, (')ENDIF',)]])
         return True
 
     if SCmp(cmds,i,('xJUMP_IF2_FALSE_POP', ('!', '.L', '(IF', '*', ')ENDIF'), ('::',0))):
-        rpl(cmds,[[('(IF', And_j(a[2], b[1][1])), b[2], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', And_j(pos__a[2], pos__b[1][1])), pos__b[2], (')ENDIF',)]])
         return True
 
     if SCmp(cmds,i,('xJUMP_IF2_FALSE_POP', '*', ('::',0))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
         return True
 
     if SCmp(cmds,i,('JUMP_IF2_TRUE_POP','JUMP_IF2_FALSE_POP', ('::', 0))):
-        rpl(cmds,[(b[0], b[1], Or_j(a[2], b[2]))])
+        rpl(cmds,[(pos__b[0], pos__b[1], Or_j(pos__a[2], pos__b[2]))])
         return True     
     if SCmp(cmds,i,('JUMP_IF2_TRUE_POP','JUMP_IF2_FALSE_POP_CONTINUE', ('::', 0))):
-        rpl(cmds,[(b[0], b[1], Or_j(a[2], b[2]))])
+        rpl(cmds,[(pos__b[0], pos__b[1], Or_j(pos__a[2], pos__b[2]))])
         return True     
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP_CONTINUE', '*l', ('::',0))):
-        rpl(cmds,[(b[0], b[1], And_j(a[2], b[2])),c])
+        rpl(cmds,[(pos__b[0], pos__b[1], And_j(pos__a[2], pos__b[2])),pos__c])
         return True     
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP_CONTINUE', ('::',0))):
-        rpl(cmds,[(b[0], b[1], And_j(a[2], b[2]))])
+        rpl(cmds,[(pos__b[0], pos__b[1], And_j(pos__a[2], pos__b[2]))])
         return True     
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_IF2_FALSE_POP', '*', ('::', (0,2)))):
-        rpl(cmds,[[('(IF',) + a[2:], b+ [('(IF',) + c[2:], d, (')ENDIF',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b+ [('(IF',) + pos__c[2:], pos__d, (')ENDIF',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'ju', (':', 0,1), 'JUMP_IF2_FALSE_POP',\
                     '*', ('::', (2,4)))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), [('(IF',) + e[2:], f, (')ENDIF',)],(')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), [('(IF',) + pos__e[2:], pos__f, (')ENDIF',)],(')ENDIF',)]])
         return True 
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*', ('::',0))):  
-        rpl(cmds,[[('(IF', Not(a[2])), b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', ('::',0))):  
-        rpl(cmds,[('UNPUSH', (a[2]))])
+        rpl(cmds,[('UNPUSH', (pos__a[2]))])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', ('::',0))):  
-        rpl(cmds,[('UNPUSH', (a[2]))])
+        rpl(cmds,[('UNPUSH', (pos__a[2]))])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_CONTINUE', ('::',0))):
-        rpl(cmds,[[('(IF',) + a[2:], b+ [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b+ [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP_CONTINUE', '*', ('::',0))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP_CONTINUE', '*c')):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP_CONTINUE', '*')):
-        rpl(cmds,[[('(IF',) + a[2:], [('CONTINUE',)], (')ENDIF',)]+b])
+        rpl(cmds,[[('(IF',) + pos__a[2:], [('CONTINUE',)], (')ENDIF',)]+pos__b])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_CONTINUE', (':', 0, 1), \
                     '*', ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), e, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), pos__e, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_CONTINUE', (':', 0, 2), \
                     '*', ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], b + [('CONTINUE',)], (')ENDIF',)],d,e])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('CONTINUE',)], (')ENDIF',)],pos__d,pos__e])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '>', 'JUMP_IF_TRUE', 'POP_TOP',\
                     (':', 0,1), '>', ('::', 2))):
-        rpl(cmds,[Or_j_s(And_j_s(a[2], b),f)])
+        rpl(cmds,[Or_j_s(And_j_s(pos__a[2], pos__b),pos__f)])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*', 'JUMP_CONTINUE', (':',0,1), '*', \
                     ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], e, (')(ELSE',),b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__e, (')(ELSE',),pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', (':',0,1),\
                     'JUMP_IF2_FALSE_POP', (':', 1,1), '*', 'JUMP_CONTINUE', ('::',3))):
-        tt = Or_j( And_j(a[2], b[2]),d[2])
-        rpl(cmds,[[('(IF', tt), f + [('CONTINUE',)], (')ENDIF',)]])
+        tt = Or_j( And_j(pos__a[2], pos__b[2]),pos__d[2])
+        rpl(cmds,[[('(IF', tt), pos__f + [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', (':',0,1),\
                     'JUMP_IF2_FALSE_POP', ('::', 1))):
-        tt = Or_j( And_j(a[2], b[2]),d[2])
-        rpl(cmds,[('JUMP_IF2_FALSE_POP', d[1], tt) + a[2:]])
+        tt = Or_j( And_j(pos__a[2], pos__b[2]),pos__d[2])
+        rpl(cmds,[('JUMP_IF2_FALSE_POP', pos__d[1], tt) + pos__a[2:]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', (':',0,1), \
                     '*', ('::',1))):
-        ifexpr = Or_j(a[2], b[2])
-        rpl(cmds,[[('(IF', ifexpr), d, (')ENDIF',), ('CONTINUE',)]])
+        ifexpr = Or_j(pos__a[2], pos__b[2])
+        rpl(cmds,[[('(IF', ifexpr), pos__d, (')ENDIF',), ('CONTINUE',)]])
         return True
-    if SCmp(cmds,i, ('ju', '.:', 'JUMP_CONTINUE')) and a[1] == c[1] and a[1] != b[1]:
-        rpl(cmds,[b,c])
+    if SCmp(cmds,i, ('ju', '.:', 'JUMP_CONTINUE')) and pos__a[1] == pos__c[1] and pos__a[1] != pos__b[1]:
+        rpl(cmds,[pos__b,pos__c])
         return True     
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*r')):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)], ('JUMP', a[1])])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)], ('JUMP', pos__a[1])])
         return True                         
     if SCmp(cmds,i, ('JUMP_IF_TRUE', 'POP_TOP', '.L', '>')):
-        rpl(cmds,[a,b,d])
+        rpl(cmds,[pos__a,pos__b,pos__d])
         return True    
     if SCmp(cmds,i, ('JUMP_IF_FALSE', 'POP_TOP', '.L', '>')):
-        rpl(cmds,[a,b,d])
+        rpl(cmds,[pos__a,pos__b,pos__d])
         return True    
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*', 'JUMP', (':',0,1), '*', ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], e, (')(ELSE',), b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__e, (')(ELSE',), pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP', (':',0,1), '*', ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), e, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), pos__e, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', ('::',0))):
-        rpl(cmds,[[('(IF',) + a[2:], [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], [('CONTINUE',)], (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*l', 'J_SETUP_LOOP_FOR')):
-        rpl(cmds,[a,c])
+        rpl(cmds,[pos__a,pos__c])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_IF2_FALSE_POP_CONTINUE', '*r',\
                     ('::', 0))):
-        rpl(cmds,[[('(IF',) +a[2:] ,b+ [('(IF',) + c[2:], d, \
+        rpl(cmds,[[('(IF',) +pos__a[2:] ,pos__b+ [('(IF',) + pos__c[2:], pos__d, \
                                     (')ENDIF',), ('CONTINUE',)], (')ENDIF',)]])
         return True 
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_IF2_FALSE_POP_CONTINUE', '*',\
                     ('::', 0))):
-        rpl(cmds,[[('(IF',) +a[2:] ,b+ [('(IF',) + c[2:], d, \
+        rpl(cmds,[[('(IF',) +pos__a[2:] ,pos__b+ [('(IF',) + pos__c[2:], pos__d, \
                                     (')(ELSE',), [('CONTINUE',)], \
                                     (')ENDIF',)], (')ENDIF',)]])
         return True 
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP', ('::',0))):
-        rpl(cmds,[('JUMP_IF2_TRUE_POP', b[1]) + a[2:]])
+        rpl(cmds,[('JUMP_IF2_TRUE_POP', pos__b[1]) + pos__a[2:]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*l', ('::',0))):
-        rpl(cmds,[[b, ('UNPUSH', a[2])]])
+        rpl(cmds,[[pos__b, ('UNPUSH', pos__a[2])]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP_IF2_FALSE_POP_CONTINUE', '*l',\
                     ('::',0,))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), \
-                            [('(IF', Not(c[2])), [('CONTINUE',)], (')ENDIF',)], \
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), \
+                            [('(IF', Not(pos__c[2])), [('CONTINUE',)], (')ENDIF',)], \
                             (')ENDIF',)]])
         return True        
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', '*r',\
-                    (':',0,1), 'JUMP_IF2_FALSE_POP_CONTINUE', '*r')) and e[1] == b[1]:
-        rpl(cmds,[[('(IF',) + a[2:],
-                            [('(IF',) +b[2:], c, (')ENDIF',)], (')(ELSE',),\
-                            [('(IF',) +e[2:], f, (')ENDIF',)], (')ENDIF',)], ('JUMP_CONTINUE', b[1])])
+                    (':',0,1), 'JUMP_IF2_FALSE_POP_CONTINUE', '*r')) and pos__e[1] == pos__b[1]:
+        rpl(cmds,[[('(IF',) + pos__a[2:],
+                            [('(IF',) +pos__b[2:], pos__c, (')ENDIF',)], (')(ELSE',),\
+                            [('(IF',) +pos__e[2:], pos__f, (')ENDIF',)], (')ENDIF',)], ('JUMP_CONTINUE', pos__b[1])])
         return True 
     if SCmp(cmds,i, ('JUMP', ('::',0))):
         rpl(cmds,[])
@@ -4472,295 +4495,295 @@ def process_jump(cmds,i, added_pass):
         rpl(cmds,[])
         return True      
     if SCmp(cmds,i, ('JUMP', (':', 4, 1), 'xJUMP_IF2_FALSE_POP', '*', 'JUMP')):
-        rpl(cmds,[a])
+        rpl(cmds,[pos__a])
         return True
-    if SCmp(cmds,i, ('JUMP_CONTINUE', 'JUMP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[a])
+    if SCmp(cmds,i, ('JUMP_CONTINUE', 'JUMP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[pos__a])
         return True    
-    if SCmp(cmds,i, ('JUMP','JUMP')) and a[1] == b[1]:
-        rpl(cmds,[a])
+    if SCmp(cmds,i, ('JUMP','JUMP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[pos__a])
         return True            
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '>', 'JUMP', (':', 0, 1), '*l', '>', ('::', 2))):
-            rpl(cmds,[('!COND_EXPR', a[2], cmd2mem(b),cmd2mem(f))])
+            rpl(cmds,[('!COND_EXPR', pos__a[2], cmd2mem(pos__b),cmd2mem(pos__f))])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '>', 'JUMP', (':', 0, 1), '>', ('::', 2))):
-            rpl(cmds,[('!COND_EXPR', a[2], cmd2mem(b),cmd2mem(e))])
+            rpl(cmds,[('!COND_EXPR', pos__a[2], cmd2mem(pos__b),cmd2mem(pos__e))])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP_CONTINUE', 'JUMP_IF2_TRUE_POP', '*',\
-                    'JUMP_CONTINUE', (':', 1, 2))) and d[1] == a[1]:
-            rpl(cmds,[[('(IF',) + a[2:], [('CONTINUE',)],\
-                            (')(ELSE',), [('(IF', Not(b[2])), c + [('CONTINUE',)], (')ENDIF',)](')ENDIF',)],e])
+                    'JUMP_CONTINUE', (':', 1, 2))) and pos__d[1] == pos__a[1]:
+            rpl(cmds,[[('(IF',) + pos__a[2:], [('CONTINUE',)],\
+                            (')(ELSE',), [('(IF', Not(pos__b[2])), pos__c + [('CONTINUE',)], (')ENDIF',)](')ENDIF',)],pos__e])
             return True                             
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', \
                     (':', 0,1), '*n', ('::',1))):
-            rpl(cmds,[[('(IF',) + a[2:], [('(IF', Not(b[2])), [('CONTINUE',)], (')ENDIF',)], (')(ELSE',), d,(')ENDIF',)],e])
+            rpl(cmds,[[('(IF',) + pos__a[2:], [('(IF', Not(pos__b[2])), [('CONTINUE',)], (')ENDIF',)], (')(ELSE',), pos__d,(')ENDIF',)],pos__e])
             return True             
     ## if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*', 'JUMP', (':', 0,1), '*r')):
-        ## if type(b) is list:
-            ## rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)],c, d])
+        ## if type(pos__b) is list:
+            ## rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)],pos__c, pos__d])
         ## else:    
-            ## rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)],c, d])
+            ## rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)],pos__c, pos__d])
         ## return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*l', '>', 'JUMP_IF_TRUE', 'POP_TOP',\
                     (':', 0,1), '>', ('::', 3))):
-        rpl(cmds,[Or_j_s(And_j_s(a[2], c), g)])
+        rpl(cmds,[Or_j_s(And_j_s(pos__a[2], pos__c), pos__g)])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', 'J_LOOP_VARS', \
                     '*', (':', 2,1), 'POP_BLOCK', '*r', (':', 0,1), '*',(':', 1,1))):
-            rpl(cmds,[a, [('(FOR', c[2], b[2]) , d, (')(ELSE',),g, (')ENDFOR',)],h_,i_,j_])
+            rpl(cmds,[pos__a, [('(FOR', pos__c[2], pos__b[2]) , pos__d, (')(ELSE',),pos__g, (')ENDFOR',)],pos__h,pos__i,pos__j])
             return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', 'J_LOOP_VARS', \
                     '*r', (':', 2, 1), 'POP_BLOCK', 'JUMP', (':', 0, 1))) and\
-                    g[1] not in (a[1], b[1], c[1]):
-            rpl(cmds,[a, [('(FOR', c[2], b[2]) , d, (')ENDFOR',)],g,h_])
+                    pos__g[1] not in (pos__a[1], pos__b[1], pos__c[1]):
+            rpl(cmds,[pos__a, [('(FOR', pos__c[2], pos__b[2]) , pos__d, (')ENDFOR',)],pos__g,pos__h])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', (':', 5,1),\
                     'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', (':', 3,1), \
                     'POP_BLOCK', '*r', (':', 0, 1))):
-            rpl(cmds,[a, [('(FOR', d[2], b[2]) , e, (')(ELSE',),i_, (')ENDFOR',)],j_])
+            rpl(cmds,[pos__a, [('(FOR', pos__d[2], pos__b[2]) , pos__e, (')(ELSE',),pos__i, (')ENDFOR',)],pos__j])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', (':', 5,1),\
                     'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', (':', 3,1),\
                     'POP_BLOCK', 'JUMP', (':', 0,1))):
-            rpl(cmds,[a, [('(FOR', d[2], b[2]) , e, (')ENDFOR',)],i_,j_])
+            rpl(cmds,[pos__a, [('(FOR', pos__d[2], pos__b[2]) , pos__e, (')ENDFOR',)],pos__i,pos__j])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'J_SETUP_LOOP_FOR', \
                     (':', 6,1), 'J_LOOP_VARS', '*n', 'ju', (':', 4,1),\
-                    'POP_BLOCK', 'ju', (':', 0,1))) and c[1] != j_[1]:
-            rpl(cmds,[a, b+[('(FOR', e[2], c[2]) , f, (')ENDFOR',)],j_,k_])
+                    'POP_BLOCK', 'ju', (':', 0,1))) and pos__c[1] != pos__j[1]:
+            rpl(cmds,[pos__a, pos__b+[('(FOR', pos__e[2], pos__c[2]) , pos__f, (')ENDFOR',)],pos__j,pos__k])
             return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0, 1),\
                     'JUMP_IF2_FALSE_POP_CONTINUE', '*n', ('::', 2))):       #  1
-        rpl(cmds,[[('(IF',) +a[2:], b, (')(ELSE',), [('(IF', Not(e[2])), [('CONTINUE',)], (')ENDIF',)] + f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) +pos__a[2:], pos__b, (')(ELSE',), [('(IF', Not(pos__e[2])), [('CONTINUE',)], (')ENDIF',)] + pos__f, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*', 'JUMP_CONTINUE', ('::', 0))):
-        rpl(cmds,[[('(IF', Not(a[2])), b + [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b + [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', ('::',0))):
-        rpl(cmds,[('JUMP_IF2_TRUE_POP', b[1], And_j(a[2], b[2]))])
+        rpl(cmds,[('JUMP_IF2_TRUE_POP', pos__b[1], And_j(pos__a[2], pos__b[2]))])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '>', 'JUMP_IF_FALSE', 'POP_TOP', ('::',0))):
-        rpl(cmds,[Or_j_s(a[2], b), c,d])
+        rpl(cmds,[Or_j_s(pos__a[2], pos__b), pos__c,pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*l', '>', 'JUMP_IF_FALSE', 'POP_TOP', ('::',0))):
-        rpl(cmds,[Or_j_s(a[2], c), d,e])
+        rpl(cmds,[Or_j_s(pos__a[2], pos__c), pos__d,pos__e])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '>', 'JUMP_IF_TRUE', 'POP_TOP',\
                     (':', 0, 1), '*l', '>', ('::', 2))):
-        rpl(cmds,[Or_j_s(And_j_s(a[2], b), g)])
+        rpl(cmds,[Or_j_s(And_j_s(pos__a[2], pos__b), pos__g)])
         return True
     if SCmp(cmds,i, ('JUMP', 'JUMP_CONTINUE')):
-        rpl(cmds,[a])
+        rpl(cmds,[pos__a])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP_CONTINUE', '*n', ('::',0))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP', '*n', 'JUMP',\
                     (':', 1,1), '*n', 'JUMP_CONTINUE', (':', (0,3), 2))):
-        rpl(cmds,[a,[('(IF',) + b[2:], c, (')(ELSE',),f +[('CONTINUE',)], (')ENDIF',)],h_])
+        rpl(cmds,[pos__a,[('(IF',) + pos__b[2:], pos__c, (')(ELSE',),pos__f +[('CONTINUE',)], (')ENDIF',)],pos__h])
         return True
     if  SCmp(cmds,i, ('JUMP_CONTINUE', 'JUMP')):
-        rpl(cmds,[a])
+        rpl(cmds,[pos__a])
         return True
-    if  SCmp(cmds,i, ('JUMP', '.:', 'JUMP')) and a[1] == c[1]:
-        rpl(cmds,[b,c])
+    if  SCmp(cmds,i, ('JUMP', '.:', 'JUMP')) and pos__a[1] == pos__c[1]:
+        rpl(cmds,[pos__b,pos__c])
         return True
-    if  SCmp(cmds,i, ('JUMP_CONTINUE', '.:', 'JUMP')) and a[1] == c[1]:
-        rpl(cmds,[b,a])
+    if  SCmp(cmds,i, ('JUMP_CONTINUE', '.:', 'JUMP')) and pos__a[1] == pos__c[1]:
+        rpl(cmds,[pos__b,pos__a])
         return True
-    if  SCmp(cmds,i, ('JUMP', '.:', 'JUMP_CONTINUE')) and a[1] == c[1]:
-        rpl(cmds,[b,c])
+    if  SCmp(cmds,i, ('JUMP', '.:', 'JUMP_CONTINUE')) and pos__a[1] == pos__c[1]:
+        rpl(cmds,[pos__b,pos__c])
         return True
-    if  SCmp(cmds,i, ('JUMP_CONTINUE', '.:', 'JUMP_CONTINUE')) and a[1] == c[1]:
-        rpl(cmds,[b,c])
+    if  SCmp(cmds,i, ('JUMP_CONTINUE', '.:', 'JUMP_CONTINUE')) and pos__a[1] == pos__c[1]:
+        rpl(cmds,[pos__b,pos__c])
         return True
     if  SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', '*r', \
                         (':', 0,1), '*n', ('::', 1))):
-        rpl(cmds,[[('(IF',) + a[2:],[('(IF', Not(b[2])), c, (')ENDIF',)],
-                        (')(ELSE',), e, (')ENDIF',)  ]])
+        rpl(cmds,[[('(IF',) + pos__a[2:],[('(IF', Not(pos__b[2])), pos__c, (')ENDIF',)],
+                        (')(ELSE',), pos__e, (')ENDIF',)  ]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_FALSE_POP_CONTINUE', ('::', 0))):
-            rpl(cmds,[[('(IF',) + a[2:], b + [('(IF', Not(c[2])), [('CONTINUE',)], (')ENDIF',)],\
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('(IF', Not(pos__c[2])), [('CONTINUE',)], (')ENDIF',)],\
                             (')ENDIF',)]])
             return True  
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', ('::', 0))):
-            rpl(cmds,[[('(IF',) + a[2:], [('(IF', Not(b[2])), [('CONTINUE',)], (')ENDIF',)],\
+            rpl(cmds,[[('(IF',) + pos__a[2:], [('(IF', Not(pos__b[2])), [('CONTINUE',)], (')ENDIF',)],\
                             (')ENDIF',)]])
             return True  
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', '*r', ('::', 0))):
-            rpl(cmds,[[('(IF',Not(a[2])), [('(IF',) + b[2:], [('CONTINUE',)], (')ENDIF',)] + c,\
+            rpl(cmds,[[('(IF',Not(pos__a[2])), [('(IF',) + pos__b[2:], [('CONTINUE',)], (')ENDIF',)] + pos__c,\
                             (')ENDIF',)]])
             return True  
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_TRUE_POP', '*n',\
                     'JUMP_CONTINUE', ('::', (0,2)))):
-        rpl(cmds,[[('(IF',) + a[2:], b + [('(IF', Not(c[2])), d+[('CONTINUE',)], (')ENDIF',)],\
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('(IF', Not(pos__c[2])), pos__d+[('CONTINUE',)], (')ENDIF',)],\
                             (')ENDIF',)]])
         return True              
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
                     'POP_BLOCK', 'JUMP', (':', 0,0))):       #  1
-        rpl(cmds,[a,[('(WHILE',) + c[0][1:], c[1], (')ENDWHILE',)],e,f])
+        rpl(cmds,[pos__a,[('(WHILE',) + pos__c[0][1:], pos__c[1], (')ENDWHILE',)],pos__e,pos__f])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
-                    'POP_BLOCK', '*n', (':', (0,1),0))) and CntJump(f[1],cmds) == 2:       #  1
-        rpl(cmds,[a,[('(WHILE',) + c[0][1:], c[1], (')(ELSE',), e, (')ENDWHILE',)],f])
+                    'POP_BLOCK', '*n', (':', (0,1),0))) and CntJump(pos__f[1],cmds) == 2:       #  1
+        rpl(cmds,[pos__a,[('(WHILE',) + pos__c[0][1:], pos__c[1], (')(ELSE',), pos__e, (')ENDWHILE',)],pos__f])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', 'J_SETUP_LOOP', ('!', '(IF', '*c', ')ENDIF'),\
-                    'POP_BLOCK', '*n', (':', (0,1),0))) and CntJump(f[1],cmds) == 2:       #  1
-        rpl(cmds,[a,[('(WHILE',) + c[0][1:], c[1], (')(ELSE',), e, (')ENDWHILE',)],f])
+                    'POP_BLOCK', '*n', (':', (0,1),0))) and CntJump(pos__f[1],cmds) == 2:       #  1
+        rpl(cmds,[pos__a,[('(WHILE',) + pos__c[0][1:], pos__c[1], (')(ELSE',), pos__e, (')ENDWHILE',)],pos__f])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'J_SETUP_LOOP', \
                     (':', 5, 1), '*n', 'ju', ('::', 0))):
-        rpl(cmds,[[('(IF',) + a[2:],b + [('(WHILE', TRUE), e, (')ENDWHILE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:],pos__b + [('(WHILE', TRUE), pos__e, (')ENDWHILE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_SETUP_LOOP', \
                     (':', 4, 1), '*n', 'ju', ('::', 0))):
-        rpl(cmds,[[('(IF',) + a[2:],[('(WHILE', TRUE), d, (')ENDWHILE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:],[('(WHILE', TRUE), pos__d, (')ENDWHILE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', '*l', ('::',0))):
-        rpl(cmds,[('UNPUSH', a[2])])
+        rpl(cmds,[('UNPUSH', pos__a[2])])
         return True
-    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_CONTINUE')) and a[1] == b[1]:
-        rpl(cmds,[('UNPUSH', a[2]),b])
+    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP_CONTINUE', 'JUMP_CONTINUE')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('UNPUSH', pos__a[2]),pos__b])
         return True
-    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP')) and a[1] == b[1]:
-        rpl(cmds,[('UNPUSH', a[2]),b])
+    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP')) and pos__a[1] == pos__b[1]:
+        rpl(cmds,[('UNPUSH', pos__a[2]),pos__b])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', \
                     '*n', 'JUMP', (':', 1,1), '*r', (':', 0,1), '*n',\
                     ('::', 3))):
-        rpl(cmds,[[('(IF',) + a[2:], \
-                            [('(IF',) + b[2:], f,\
-                            (')(ELSE',), c, (')ENDIF',)],\
-                            (')(ELSE',), h_, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], \
+                            [('(IF',) + pos__b[2:], pos__f,\
+                            (')(ELSE',), pos__c, (')ENDIF',)],\
+                            (')(ELSE',), pos__h, (')ENDIF',)]])
         return True                    
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', 'JUMP_IF2_TRUE_POP', \
                     '*n', 'JUMP', (':', 1,1), '*r', (':', 0,1), '*n',\
                     ('::', 3))):
-        rpl(cmds,[[('(IF', Not(a[2])), \
-                            [('(IF',) + b[2:], f,\
-                            (')(ELSE',), c, (')ENDIF',)],\
-                            (')(ELSE',), h_, (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), \
+                            [('(IF',) + pos__b[2:], pos__f,\
+                            (')(ELSE',), pos__c, (')ENDIF',)],\
+                            (')(ELSE',), pos__h, (')ENDIF',)]])
         return True                    
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_TRUE_POP', '*r',\
                     (':', 0, 1), '*n', ('::', 2))):
-        rpl(cmds,[[('(IF',) + a[2:], b + [('(IF', Not(c[2])), d, (')ENDIF',)], (')(ELSE',), f,(')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('(IF', Not(pos__c[2])), pos__d, (')ENDIF',)], (')(ELSE',), pos__f,(')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_FALSE_POP', '*r',\
                     (':', 0, 1), '*n', ('::', 2))):
-        rpl(cmds,[[('(IF',) + a[2:], b + [('(IF',) +c[2:], d, (')ENDIF',)], (')(ELSE',), f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('(IF',) +pos__c[2:], pos__d, (')ENDIF',)], (')(ELSE',), pos__f, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1),\
-                    'JUMP_IF2_FALSE_POP', '*n', ('::', 2))) and islooplabel(e[1],cmds):       #  1
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), \
-                        [('(IF',) + e[2:], f, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
+                    'JUMP_IF2_FALSE_POP', '*n', ('::', 2))) and islooplabel(pos__e[1],cmds):       #  1
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), \
+                        [('(IF',) + pos__e[2:], pos__f, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'jc', (':', 0,1), '*n',\
-                    (':', None, 0), ('::',2))) and c[1] != f[1] and a[1] != f[1]:    
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), e, (')ENDIF',)], ('JUMP_CONTINUE', c[1]), f,('JUMP_CONTINUE', c[1])])
+                    (':', None, 0), ('::',2))) and pos__c[1] != pos__f[1] and pos__a[1] != pos__f[1]:    
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), pos__e, (')ENDIF',)], ('JUMP_CONTINUE', pos__c[1]), pos__f,('JUMP_CONTINUE', pos__c[1])])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'ju', (':', 0,1), ('::',2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1), \
                     'JUMP_CONTINUE',  ('::', 2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP_CONTINUE', \
                     '*n', 'JUMP', (':', 0,1), '*n', ('::', 3))):
-        rpl(cmds,[[('(IF',) + a[2:], \
-                        [('(IF',) + b[2:], c, (')(ELSE',), [('CONTINUE',)],(')ENDIF',)],\
-                        (')(ELSE',), f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], \
+                        [('(IF',) + pos__b[2:], pos__c, (')(ELSE',), [('CONTINUE',)],(')ENDIF',)],\
+                        (')(ELSE',), pos__f, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_FALSE_POP', 'jc', \
                     (':', 0,1), '*n', ('::', 2))):
-        rpl(cmds,[[('(IF',) + a[2:], \
-                        b + [('(IF',) + c[2:], [('CONTINUE',)], (')ENDIF',)],(')(ELSE',), f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], \
+                        pos__b + [('(IF',) + pos__c[2:], [('CONTINUE',)], (')ENDIF',)],(')(ELSE',), pos__f, (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'jc', ('::', 0))):     
-        rpl(cmds,[[('(IF',) + a[2:], b + [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP_CONTINUE', '*r')):
-        rpl(cmds,[[('(IF',) + a[2:], b , (')ENDIF',)], ('JUMP_CONTINUE', a[1])])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b , (')ENDIF',)], ('JUMP_CONTINUE', pos__a[1])])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'ju', (':', 0,1), \
                     'JUMP_IF2_FALSE_POP_CONTINUE', '*n', ('::', 2))):
-        rpl(cmds,[[('(IF',) + a[2:], b, (')(ELSE',), \
-                        [('(IF',) + e[2:], f, (')(ELSE',),[('CONTINUE',)], (')ENDIF',)]]])
+        rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')(ELSE',), \
+                        [('(IF',) + pos__e[2:], pos__f, (')(ELSE',),[('CONTINUE',)], (')ENDIF',)]]])
         return True
     if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP', 'JUMP_CONTINUE', ('::', 0))):
-            rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', b[1]) + a[2:]])
+            rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE', pos__b[1]) + pos__a[2:]])
             return True       
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', \
                     '*r', (':', 1, 1), '*n', ('::', (0,2)))):
-            rpl(cmds,[[('(IF',) + a[2:],\
-                                [('(IF',) + b[2:],  \
-                                [('(IF', Not(c[2])), d, (')ENDIF',)],\
-                                (')(ELSE',), f, (')ENDIF',)],\
+            rpl(cmds,[[('(IF',) + pos__a[2:],\
+                                [('(IF',) + pos__b[2:],  \
+                                [('(IF', Not(pos__c[2])), pos__d, (')ENDIF',)],\
+                                (')(ELSE',), pos__f, (')ENDIF',)],\
                             (')ENDIF',)]])
             return True       
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_IF2_FALSE_POP', \
-                    '*n', 'jc', (':', 0,1), '*n', ('::', 2))) and e[1] not in (f[1],h_[1]):
-            rpl(cmds,[[('(IF',) + a[2:], b + \
-                                [('(IF',) + c[2:], d+ [('CONTINUE',)], (')ENDIF',)], \
-                            (')(ELSE',), g, (')ENDIF',)]])
+                    '*n', 'jc', (':', 0,1), '*n', ('::', 2))) and pos__e[1] not in (pos__f[1],pos__h[1]):
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b + \
+                                [('(IF',) + pos__c[2:], pos__d+ [('CONTINUE',)], (')ENDIF',)], \
+                            (')(ELSE',), pos__g, (')ENDIF',)]])
             return True       
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', '*n', 'JUMP',\
                     (':', 0,1), '*n', (':', 3,2), ('::',1))):
-            rpl(cmds,[[('(IF',) + a[2:], \
-                                [('(IF',) + b[2:], [('CONTINUE',)], (')ENDIF',)] + c, \
-                            (')(ELSE',), f, (')ENDIF',)], g,h_])
+            rpl(cmds,[[('(IF',) + pos__a[2:], \
+                                [('(IF',) + pos__b[2:], [('CONTINUE',)], (')ENDIF',)] + pos__c, \
+                            (')(ELSE',), pos__f, (')ENDIF',)], pos__g,pos__h])
             return True       
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', 'JUMP_IF2_TRUE_POP', '*n', 'JUMP',\
-                    (':', 0,1), '*n', (':', 3,1), ('::',1))) and b[1] == h_[1]:
-            rpl(cmds,[[('(IF',) + a[2:], \
-                                [('(IF',) + b[2:], [('CONTINUE',)], (')ENDIF',)] + c, \
-                            (')(ELSE',), f, (')ENDIF',)], h_])
+                    (':', 0,1), '*n', (':', 3,1), ('::',1))) and pos__b[1] == pos__h[1]:
+            rpl(cmds,[[('(IF',) + pos__a[2:], \
+                                [('(IF',) + pos__b[2:], [('CONTINUE',)], (')ENDIF',)] + pos__c, \
+                            (')(ELSE',), pos__f, (')ENDIF',)], pos__h])
             return True       
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1),\
                     '*n', 'JUMP_CONTINUE', ('::', 2))):            
-            rpl(cmds,[[('(IF',) + a[2:], b , (')(ELSE',), e + [('CONTINUE',)], (')ENDIF',)]])
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b , (')(ELSE',), pos__e + [('CONTINUE',)], (')ENDIF',)]])
             return True                
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n','xJUMP_IF2_TRUE_POP', '*n', 'JUMP',\
                     (':', 0,1), '*n', (':', 4,2), ('::', 2))):
-            rpl(cmds,[[('(IF',) + a[2:], b +\
-                                [('(IF',) + c[2:], [('CONTINUE',)], (')ENDIF',)] + d, \
-                            (')(ELSE',), g, (')ENDIF',)], h_,i_])
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b +\
+                                [('(IF',) + pos__c[2:], [('CONTINUE',)], (')ENDIF',)] + pos__d, \
+                            (')(ELSE',), pos__g, (')ENDIF',)], pos__h,pos__i])
             return True       
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n','xJUMP_IF2_TRUE_POP', '*n', 'JUMP',\
                     (':', 0,1), '*n', (':', 4,1), ('::', 2))):
-            rpl(cmds,[[('(IF',) + a[2:], b +\
-                                [('(IF',) + c[2:], [('CONTINUE',)], (')ENDIF',)] + d, \
-                            (')(ELSE',), g, (')ENDIF',)],i_])
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b +\
+                                [('(IF',) + pos__c[2:], [('CONTINUE',)], (')ENDIF',)] + pos__d, \
+                            (')(ELSE',), pos__g, (')ENDIF',)],pos__i])
             return True       
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*r', ('::',0))):
-            rpl(cmds,[[('(IF',) + a[2:], b, (')ENDIF',)]])
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b, (')ENDIF',)]])
             return True 
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', \
                     'JUMP_IF2_FALSE_POP', '*n', \
                     'JUMP_IF2_FALSE_POP', '*n', \
                     'JUMP_IF2_TRUE_POP', '*r', \
                     (':', 2,1), '*r', \
-                    (':', (0, 4, 6), 2), '*r')) and CntJump(k_[1],cmds) == 3:
-            rpl(cmds,[[('(IF',) + a[2:], b +\
-                                [('(IF',) + c[2:], d +\
-                                        [('(IF',) + e[2:], f +\
-                                            [('(IF', Not(g[2])), h_, (')ENDIF',)],\
+                    (':', (0, 4, 6), 2), '*r')) and CntJump(pos__k[1],cmds) == 3:
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b +\
+                                [('(IF',) + pos__c[2:], pos__d +\
+                                        [('(IF',) + pos__e[2:], pos__f +\
+                                            [('(IF', Not(pos__g[2])), pos__h, (')ENDIF',)],\
                                         (')ENDIF',)],\
-                                (')(ELSE',), j_, \
+                                (')(ELSE',), pos__j, \
                                 (')ENDIF',)],\
-                            (')ENDIF',)] +l_])            
+                            (')ENDIF',)] +pos__l])            
             return True    
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n',\
                     'JUMP_IF2_TRUE_POP', \
                     'JUMP_IF2_FALSE_POP', '*n',\
                     'JUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', \
                     (':', 3,1), '*n', \
-                    (':', (0,2, 5)))) and CntJump(j_[1],cmds) == 3:
-            rpl(cmds,[[('(IF',) + a[2:], b +\
-                                [('(IF',) + c[2:], [('PASS',)], (')(ELSE',),\
-                                        [('(IF',) + d[2:], e +\
-                                            [('(IF',) + f[2:], [('CONTINUE',)], (')ENDIF',)],\
-                                        (')(ELSE',), i_,
+                    (':', (0,2, 5)))) and CntJump(pos__j[1],cmds) == 3:
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b +\
+                                [('(IF',) + pos__c[2:], [('PASS',)], (')(ELSE',),\
+                                        [('(IF',) + pos__d[2:], pos__e +\
+                                            [('(IF',) + pos__f[2:], [('CONTINUE',)], (')ENDIF',)],\
+                                        (')(ELSE',), pos__i,
                                         (')ENDIF',)],\
                                 (')ENDIF',)],\
                             (')ENDIF',)]])           
@@ -4769,898 +4792,898 @@ def process_jump(cmds,i, added_pass):
                     'JUMP_IF2_FALSE_POP', '*n', 'JUMP', \
                     (':', 2,1), '*n', 'JUMP_CONTINUE', \
                     (':', 0,1), '*n', ('::', 4))):
-            rpl(cmds,[[('(IF',) + a[2:], b +\
-                                [('(IF',) + c[2:], d, (')(ELSE',),
-                                        g + [('CONTINUE',)], (')ENDIF',)],\
-                                (')(ELSE',), j_, (')ENDIF',)]])
+            rpl(cmds,[[('(IF',) + pos__a[2:], pos__b +\
+                                [('(IF',) + pos__c[2:], pos__d, (')(ELSE',),
+                                        pos__g + [('CONTINUE',)], (')ENDIF',)],\
+                                (')(ELSE',), pos__j, (')ENDIF',)]])
             return True 
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '>', 'JUMP_IF_TRUE', 'POP_TOP',\
                     (':', 0,1), 'JUMP_IF2_FALSE_POP', '>', \
                     'JUMP_IF_TRUE', 'POP_TOP', (':', 5,1), '>', \
                     ('::', (2,7)))):
-            rpl(cmds,[Or_j_s(And_j_s(a[2],b), Or_j_s(And_j_s(f[2],g),k_))])
+            rpl(cmds,[Or_j_s(And_j_s(pos__a[2],pos__b), Or_j_s(And_j_s(pos__f[2],pos__g),pos__k))])
             return True 
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP_CONTINUE', '*')):
-        rpl(cmds,[[('(IF', Not(a[2])), [('CONTINUE',)], (')ENDIF',)]+b])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), [('CONTINUE',)], (')ENDIF',)]+pos__b])
         return True
-    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'RETURN_VALUE', ('::',0))) and len(b) == 2:
-        rpl(cmds,[[('(IF', a[2]), [b], (')ENDIF',)]])
+    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'RETURN_VALUE', ('::',0))) and len(pos__b) == 2:
+        rpl(cmds,[[('(IF', pos__a[2]), [pos__b], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '*n',\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', ('::', 0))):
-        rpl(cmds,[[('(IF', Not(a[2])), b + [('(IF', c[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b + [('(IF', pos__c[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP',\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', ('::', 0))):
-        rpl(cmds,[[('(IF', Not(a[2])), [('(IF', c[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), [('(IF', pos__c[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '*n', 'JUMP', (':', 0,1),\
                     '*n', 'JUMP_CONTINUE', ('::', 2))):
-        rpl(cmds,[[('(IF', Not(a[2])), b, (')(ELSE',), e + [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b, (')(ELSE',), pos__e + [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', 'JUMP', (':', 0,1),\
                     '*n', 'JUMP_CONTINUE', ('::', 1))):
-        rpl(cmds,[[('(IF', a[2]), e + [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__e + [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '*n', 'JUMP', (':', 0,1),\
                     'JUMP_CONTINUE', ('::', 2))):
-        rpl(cmds,[[('(IF', Not(a[2])), b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', 'JUMP', (':', 0,1),\
                     'JUMP_CONTINUE', ('::', 1))):
-        rpl(cmds,[[('(IF', a[2]), [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), [('CONTINUE',)], (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'xJUMP_IF2_TRUE_POP', '*r',\
                     (':', 0,1), '*r', ('::', 2))):
-        rpl(cmds,[[('(IF', a[2]), b + [('(IF', Not(c[2])), d, (')ENDIF',)], (')(ELSE',), f , (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b + [('(IF', Not(pos__c[2])), pos__d, (')ENDIF',)], (')(ELSE',), pos__f , (')ENDIF',)]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'xJUMP_IF2_TRUE_POP', '*r',\
                     (':', 0,1), '*r', ('::', 1))):
-        rpl(cmds,[[('(IF', a[2]), [('(IF', Not(b[2])), c, (')ENDIF',)], (')(ELSE',), e , (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), [('(IF', Not(pos__b[2])), pos__c, (')ENDIF',)], (')(ELSE',), pos__e , (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0, 1),\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', (':', 2,1), '*n', \
                     ('::', 4))):
-        rpl(cmds,[[('(IF', a[2]), b, (')(ELSE',), [('(IF', e[2]), [('CONTINUE',)], (')ENDIF',)]+g, (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b, (')(ELSE',), [('(IF', pos__e[2]), [('CONTINUE',)], (')ENDIF',)]+pos__g, (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP', (':', 0, 1),\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', (':', 1,1), '*n', \
                     ('::', 3))):
-        rpl(cmds,[[('(IF', Not(a[2])),[('(IF', d[2]), [('CONTINUE',)], (')ENDIF',)]+f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])),[('(IF', pos__d[2]), [('CONTINUE',)], (')ENDIF',)]+pos__f, (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0, 1),\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', (':', 2,1), \
                     ('::', 4))):
-        rpl(cmds,[[('(IF', a[2]), b, (')(ELSE',), [('(IF', e[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b, (')(ELSE',), [('(IF', pos__e[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP', (':', 0, 1),\
                     'xJUMP_IF2_TRUE_POP_CONTINUE', (':', 1,1), \
                     ('::', 3))):
-        rpl(cmds,[[('(IF', Not(a[2])),[('(IF', d[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', Not(pos__a[2])),[('(IF', pos__d[2]), [('CONTINUE',)], (')ENDIF',)], (')ENDIF',)]])
         return True    
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'xJUMP_IF2_FALSE_POP', '*n',\
                     'ju', (':', 0, 1), '*n', (':', 1, 1),\
                     '*n', ('::', 3))):
-        rpl(cmds,[[('(IF', a[2]),[('(IF', b[2]), c, (')(ELSE',), h_, (')ENDIF',)], (')(ELSE',), f, (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]),[('(IF', pos__b[2]), pos__c, (')(ELSE',), pos__h, (')ENDIF',)], (')(ELSE',), pos__f, (')ENDIF',)]])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'xJUMP_IF2_FALSE_POP', \
                     'ju', (':', 0, 1), '*n', (':', 1, 1),\
                     '*n', ('::', 2))):
-        c,d,e,f,g,h_,i_ = [('PASS',)],c,d,e,f,g,h_                
-        rpl(cmds,[[('(IF', a[2]),[('(IF', b[2]), c, (')(ELSE',), h_, (')ENDIF',)], (')(ELSE',), f, (')ENDIF',)]])
+        pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i = [('PASS',)],pos__c,pos__d,pos__e,pos__f,pos__g,pos__h                
+        rpl(cmds,[[('(IF', pos__a[2]),[('(IF', pos__b[2]), pos__c, (')(ELSE',), pos__h, (')ENDIF',)], (')(ELSE',), pos__f, (')ENDIF',)]])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1),\
-                    '*n', 'JUMP_CONTINUE')) and c[1] not in (a[1], d[1], f[1]):
-        rpl(cmds,[[('(IF', a[2]), b, (')(ELSE',), e + [('CONTINUE',)], (')ENDIF',)], c])
+                    '*n', 'JUMP_CONTINUE')) and pos__c[1] not in (pos__a[1], pos__d[1], pos__f[1]):
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b, (')(ELSE',), pos__e + [('CONTINUE',)], (')ENDIF',)], pos__c])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1),\
-                    'JUMP_CONTINUE')) and c[1] not in (a[1], d[1], e[1]):
-        rpl(cmds,[[('(IF', a[2]), b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], c])
+                    'JUMP_CONTINUE')) and pos__c[1] not in (pos__a[1], pos__d[1], pos__e[1]):
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b, (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], pos__c])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP', (':', 0,1),\
-                    '*n', 'JUMP_CONTINUE')) and b[1] not in (a[1], c[1], e[1]):
-        rpl(cmds,[[('(IF', a[2]), [('PASS',)], (')(ELSE',), d + [('CONTINUE',)], (')ENDIF',)], b])
+                    '*n', 'JUMP_CONTINUE')) and pos__b[1] not in (pos__a[1], pos__c[1], pos__e[1]):
+        rpl(cmds,[[('(IF', pos__a[2]), [('PASS',)], (')(ELSE',), pos__d + [('CONTINUE',)], (')ENDIF',)], pos__b])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP', (':', 0,1),\
-                    'JUMP_CONTINUE')) and b[1] not in (a[1], c[1], d[1]):
-        rpl(cmds,[[('(IF', a[2]), [('PASS',)], (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], b])
+                    'JUMP_CONTINUE')) and pos__b[1] not in (pos__a[1], pos__c[1], pos__d[1]):
+        rpl(cmds,[[('(IF', pos__a[2]), [('PASS',)], (')(ELSE',), [('CONTINUE',)], (')ENDIF',)], pos__b])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP_CONTINUE', 'xJUMP_IF2_FALSE_POP', \
-                    'JUMP_CONTINUE')) and a[1] == c[1]:
-        rpl(cmds,[[('(IF', Or_j(a[2], b[2])), [('CONTINUE',)], (')ENDIF',)], ('JUMP', b[1])])
+                    'JUMP_CONTINUE')) and pos__a[1] == pos__c[1]:
+        rpl(cmds,[[('(IF', Or_j(pos__a[2], pos__b[2])), [('CONTINUE',)], (')ENDIF',)], ('JUMP', pos__b[1])])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP_CONTINUE')):
-        rpl(cmds,[[('(IF', a[2]), b + [('CONTINUE',)], (')ENDIF',)], ('JUMP', a[1])])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b + [('CONTINUE',)], (')ENDIF',)], ('JUMP', pos__a[1])])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1), '*r', \
-                    '.:')) and c[1] != f[1]:
-        rpl(cmds,[[('(IF', a[2]), b , (')(ELSE',), e, (')ENDIF',)], c,f])
+                    '.:')) and pos__c[1] != pos__f[1]:
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b , (')(ELSE',), pos__e, (')ENDIF',)], pos__c,pos__f])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'JUMP', (':', 0,1), '*n',\
                     'jc', ('::', 2))):
-        rpl(cmds,[[('(IF', a[2]), b , (')(ELSE',), e + [('CONTINUE',)], (')ENDIF',)]])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b , (')(ELSE',), pos__e + [('CONTINUE',)], (')ENDIF',)]])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'xJUMP_IF2_FALSE_POP', '**n', \
                     'xJUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', (':', 0, 1), \
                     '**n', ('::', (1, 3)))):
-        rpl(cmds,[[('(IF', a[2]), [('(IF', b[2]), \
-                                      c + [('(IF', d[2]), [('CONTINUE',)], (')ENDIF',)], \
+        rpl(cmds,[[('(IF', pos__a[2]), [('(IF', pos__b[2]), \
+                                      pos__c + [('(IF', pos__d[2]), [('CONTINUE',)], (')ENDIF',)], \
                                       (')ENDIF',)],\
-                      (')(ELSE',), g, (')ENDIF',)]])                
+                      (')(ELSE',), pos__g, (')ENDIF',)]])                
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '**n', 'xJUMP_IF2_FALSE_POP', '**n', \
                     'xJUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', (':', 0, 1), \
                     '**n', ('::', (2, 4)))):
-        rpl(cmds,[[('(IF', a[2]), b + [('(IF', c[2]), \
-                                      d + [('(IF', e[2]), [('CONTINUE',)], (')ENDIF',)], \
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b + [('(IF', pos__c[2]), \
+                                      pos__d + [('(IF', pos__e[2]), [('CONTINUE',)], (')ENDIF',)], \
                                       (')ENDIF',)],\
-                      (')(ELSE',), h_, (')ENDIF',)]])                
+                      (')(ELSE',), pos__h, (')ENDIF',)]])                
         return True  
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '**n', 'xJUMP_IF2_FALSE_POP', '**n', \
                     'xJUMP_IF2_FALSE_POP', '**n', 'JUMP_CONTINUE', (':', 0, 1), \
                     '**n', ('::', (2, 4)))):
-        rpl(cmds,[[('(IF', a[2]), b + [('(IF', c[2]), \
-                                      d + [('(IF', e[2]), f + [('CONTINUE',)], (')ENDIF',)], \
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b + [('(IF', pos__c[2]), \
+                                      pos__d + [('(IF', pos__e[2]), pos__f + [('CONTINUE',)], (')ENDIF',)], \
                                       (')ENDIF',)],\
-                      (')(ELSE',), i_, (')ENDIF',)]])                
+                      (')(ELSE',), pos__i, (')ENDIF',)]])                
         return True  
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*r', (':', None,0), 'END_FINALLY', ('::', 0))):
-        rpl(cmds,[[('(IF', a[2]), b, (')ENDIF',)], c,d])
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b, (')ENDIF',)], pos__c,pos__d])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '*r', '.:', '*n', (':', 0, 0))):
-        rpl(cmds,[[('(IF', Not(a[2])), b, (')ENDIF',)], ('JUMP', a[1]), c,d,e])
+        rpl(cmds,[[('(IF', Not(pos__a[2])), pos__b, (')ENDIF',)], ('JUMP', pos__a[1]), pos__c,pos__d,pos__e])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', (':', 4, 1), '*r', (':', 0, 1), '*r', ('::', 6))):
-                rpl(cmds,[[('(IF', a[2]), concatenate_try_except(c,f, j_), (')(ELSE',), l_, (')ENDIF',)]])
+                rpl(cmds,[[('(IF', pos__a[2]), concatenate_try_except(pos__c,pos__f, pos__j), (')(ELSE',), pos__l, (')ENDIF',)]])
                 return True 
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', (':', 4, 1), '*r', (':', 0, 1), '*n', ('::', 6))):
-                rpl(cmds,[[('(IF', a[2]), concatenate_try_except(c,f, j_), (')(ELSE',), l_, (')ENDIF',)]])
+                rpl(cmds,[[('(IF', pos__a[2]), concatenate_try_except(pos__c,pos__f, pos__j), (')(ELSE',), pos__l, (')ENDIF',)]])
                 return True                     
     if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP', '*n', 'JUMP_CONTINUE', (':', 0, 1),\
-                    '*n', 'JUMP_CONTINUE')) and c[1] == f[1]:
-        rpl(cmds,[[('(IF', a[2]), b , (')(ELSE',), e , (')ENDIF',)], f])
+                    '*n', 'JUMP_CONTINUE')) and pos__c[1] == pos__f[1]:
+        rpl(cmds,[[('(IF', pos__a[2]), pos__b , (')(ELSE',), pos__e , (')ENDIF',)], pos__f])
         return True   
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
-                    'END_FINALLY', 'JUMP', (':', 0,None))) and e[1] == i_[1]:
-        rpl(cmds,[a, concatenate_try_except(c, f),j_])
+                    'END_FINALLY', 'JUMP', (':', 0,None))) and pos__e[1] == pos__i[1]:
+        rpl(cmds,[pos__a, concatenate_try_except(pos__c, pos__f),pos__j])
         return True                    
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '**n', 'J_SETUP_LOOP_FOR', (':', 6,1),\
                     'J_LOOP_VARS', '**n', 'JUMP_CONTINUE', (':', 4, 1),\
                     'POP_BLOCK', 'JUMP', (':', 0,1), '*n', (':', 2,1),\
                     'JUMP')):
-        cmds[i:i+9] = [a,b+[('(FOR', e[2], c[2]), f[:], (')ENDFOR',)]]
+        cmds[i:i+9] = [pos__a,pos__b+[('(FOR', pos__e[2], pos__c[2]), pos__f[:], (')ENDFOR',)]]
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', (':', 5, 1),\
                     'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', (':', 3, 1),\
                     'POP_BLOCK', '*n', 'JUMP_CONTINUE', (':', 0, 1), '*n',\
                     (':', 1,1), ('::', 9))):
-        rpl(cmds,[a, [('(FOR', d[2], b[2]), e[:], (')(ELSE',), i_,(')ENDFOR',)],j_,k_,l_,cmds[i+12]])
+        rpl(cmds,[pos__a, [('(FOR', pos__d[2], pos__b[2]), pos__e[:], (')(ELSE',), pos__i,(')ENDFOR',)],pos__j,pos__k,pos__l,cmds[i+12]])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', 'J_SETUP_LOOP_FOR', (':', 5, 1),\
                     'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', (':', 3, 1),\
                     'POP_BLOCK', 'JUMP_CONTINUE', (':', 0, 0))) and \
-                    i_[1] not in (a[1], b[1], d[1], f[1]):
-        rpl(cmds,[a, [('(FOR', d[2], b[2]), e[:], (')ENDFOR',)],i_,j_])
+                    pos__i[1] not in (pos__a[1], pos__b[1], pos__d[1], pos__f[1]):
+        rpl(cmds,[pos__a, [('(FOR', pos__d[2], pos__b[2]), pos__e[:], (')ENDFOR',)],pos__i,pos__j])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'J_SETUP_LOOP', \
                     ('!', '(IF', '*c', ')ENDIF'), 'POP_BLOCK', '*n', \
-                    'JUMP_CONTINUE', (':', 0,0))) and c[1] != a[1] != g[1]:
-        rpl(cmds,[a, b + [('(WHILE',) + d[0][1:], d[1][:-1], (')(ELSE',), f, (')ENDWHILE',)],g,h_])
+                    'JUMP_CONTINUE', (':', 0,0))) and pos__c[1] != pos__a[1] != pos__g[1]:
+        rpl(cmds,[pos__a, pos__b + [('(WHILE',) + pos__d[0][1:], pos__d[1][:-1], (')(ELSE',), pos__f, (')ENDWHILE',)],pos__g,pos__h])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP', '*n', 'J_SETUP_LOOP_FOR', \
                     (':', 6, 1), 'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', \
                     (':', 4, 1), 'POP_BLOCK', 'JUMP_CONTINUE', (':', 0, 0))) and \
-                    a[1] != c[1] != j_[1]:
-        rpl(cmds,[a, b +[('(FOR', e[2], c[2]), f[:], (')ENDFOR',)],j_, k_])
+                    pos__a[1] != pos__c[1] != pos__j[1]:
+        rpl(cmds,[pos__a, pos__b +[('(FOR', pos__e[2], pos__c[2]), pos__f[:], (')ENDFOR',)],pos__j, pos__k])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'J_SETUP_LOOP', \
                     ('!', '(IF', '*r', ')ENDIF'), 'POP_BLOCK',  ('::', (0,2)))):
-        rpl(cmds,[a, b + [('(WHILE',) + d[0][1:], d[1][:-1], (')ENDWHILE',)],f])
+        rpl(cmds,[pos__a, pos__b + [('(WHILE',) + pos__d[0][1:], pos__d[1][:-1], (')ENDWHILE',)],pos__f])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '*n', 'J_SETUP_LOOP', \
                     ('!', '(IF', '*r', ')ENDIF'), 'POP_BLOCK', 'JUMP', (':', 0, 0))) and\
-                    a[1] != c[1] and a[1] != f[1]:
-            rpl(cmds,[a,b+[('(WHILE',) + d[0][1:], d[1], (')ENDWHILE',)],f,g])
+                    pos__a[1] != pos__c[1] and pos__a[1] != pos__f[1]:
+            rpl(cmds,[pos__a,pos__b+[('(WHILE',) + pos__d[0][1:], pos__d[1], (')ENDWHILE',)],pos__f,pos__g])
             return True       
-    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '>', 'JUMP', ('::', 0))) and c[1] != d[1]:
-        rpl(cmds,[('J_COND_PUSH', c[1], a[2], cmd2mem(b))])
+    if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', '>', 'JUMP', ('::', 0))) and pos__c[1] != pos__d[1]:
+        rpl(cmds,[('J_COND_PUSH', pos__c[1], pos__a[2], cmd2mem(pos__b))])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_COND_PUSH', (':', 0, 1),\
                     '>', ('::', 1))):
-        rpl(cmds,[('!COND_EXPR', a[2], ('!COND_EXPR',) + b[2:] + (cmd2mem(d),), cmd2mem(d))])
+        rpl(cmds,[('!COND_EXPR', pos__a[2], ('!COND_EXPR',) + pos__b[2:] + (cmd2mem(pos__d),), cmd2mem(pos__d))])
         return True
     if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'J_SETUP_LOOP_FOR', (':', 5, 1),\
                     'J_LOOP_VARS', '*n', 'JUMP_CONTINUE', (':', 3, 1), \
-                    'POP_BLOCK', '*n', 'JUMP', ('::', 0))) and b[1] != j_[1] and \
-                    b[1] not in (a[1],c[1], d[1]):       #  1
-        rpl(cmds,[a, [('(FOR', d[2], b[2]), e[:], (')(ELSE',), i_,(')ENDFOR',)],j_,k_])
+                    'POP_BLOCK', '*n', 'JUMP', ('::', 0))) and pos__b[1] != pos__j[1] and \
+                    pos__b[1] not in (pos__a[1],pos__c[1], pos__d[1]):       #  1
+        rpl(cmds,[pos__a, [('(FOR', pos__d[2], pos__b[2]), pos__e[:], (')(ELSE',), pos__i,(')ENDFOR',)],pos__j,pos__k])
         return True
     if added_pass:
         if SCmp(cmds,i, ('xJUMP_IF2_TRUE_POP_CONTINUE',)):
-            rpl(cmds,[[('(IF', a[2]), [('CONTINUE',)], (')ENDIF',)]])
+            rpl(cmds,[[('(IF', pos__a[2]), [('CONTINUE',)], (')ENDIF',)]])
             return True   
-        if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP',)) and islooplabel(a[1],cmds):
-            rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE',) + a[1:]])
+        if SCmp(cmds,i, ('JUMP_IF2_TRUE_POP',)) and islooplabel(pos__a[1],cmds):
+            rpl(cmds,[('JUMP_IF2_TRUE_POP_CONTINUE',) + pos__a[1:]])
             return True   
-        if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP',)) and islooplabel(a[1],cmds):
-            rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE',) + a[1:]])
+        if SCmp(cmds,i, ('JUMP_IF2_FALSE_POP',)) and islooplabel(pos__a[1],cmds):
+            rpl(cmds,[('JUMP_IF2_FALSE_POP_CONTINUE',) + pos__a[1:]])
             return True   
-        if SCmp(cmds,i, ('JUMP',)) and islooplabel(a[1],cmds):
-            rpl(cmds,[('JUMP_CONTINUE',) + a[1:]])
+        if SCmp(cmds,i, ('JUMP',)) and islooplabel(pos__a[1],cmds):
+            rpl(cmds,[('JUMP_CONTINUE',) + pos__a[1:]])
             return True   
         if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'xJUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', \
                     (':', 0,0), '*n', (':', 1,0))):
-            rpl(cmds,[a,[('(IF', b[2]), [('CONTINUE',)], (')ENDIF',)],('JUMP', b[1]), d,e,f])
+            rpl(cmds,[pos__a,[('(IF', pos__b[2]), [('CONTINUE',)], (')ENDIF',)],('JUMP', pos__b[1]), pos__d,pos__e,pos__f])
             return True           
-        if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', '.:')) and a[1] != b[1] != c[1]: 
-            rpl(cmds,[[('(IF', a[2]), [('CONTINUE',)], (')ENDIF',)],('JUMP', a[1]),c])
+        if SCmp(cmds,i, ('xJUMP_IF2_FALSE_POP', 'JUMP_CONTINUE', '.:')) and pos__a[1] != pos__b[1] != pos__c[1]: 
+            rpl(cmds,[[('(IF', pos__a[2]), [('CONTINUE',)], (')ENDIF',)],('JUMP', pos__a[1]),pos__c])
             return True           
     return False
 
 def process_j_setup_loop_for(cmds,i):
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':',4,1), 'J_LOOP_VARS', '*', 'ju',
                         (':',2,1), 'POP_BLOCK', ('::',0))):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')ENDFOR',)]])
         return True 
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*', (':',1,1), 'POP_BLOCK',\
-                    'JUMP')) and a[1] == f[1]:
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')ENDFOR',)],f])
+                    'JUMP')) and pos__a[1] == pos__f[1]:
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')ENDFOR',)],pos__f])
         return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':',4,1), 'J_LOOP_VARS', '*n',\
                     'ju', (':',2,1), 'POP_BLOCK', '*n', 'jc', ('::',0)))and\
-                    i_[1] != e[1]:
-            rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',), h_ + [('CONTINUE',)],(')ENDFOR',)]])
+                    pos__i[1] != pos__e[1]:
+            rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',), pos__h + [('CONTINUE',)],(')ENDFOR',)]])
             return True 
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*', (':', 1, 1),\
                     'POP_BLOCK', ('::',0))):
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')ENDFOR',)]])
         return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3,0), 'J_LOOP_VARS',\
                     'xJUMP_IF2_FALSE_POP_CONTINUE', '*r')):
-            rpl(cmds,[a,b,c,[('(IF',) + d[2:], e, (')ENDIF',)], ('JUMP_CONTINUE',d[1])])
+            rpl(cmds,[pos__a,pos__b,pos__c,[('(IF',) + pos__d[2:], pos__e, (')ENDIF',)], ('JUMP_CONTINUE',pos__d[1])])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3,0), 'J_LOOP_VARS',\
                     'xJUMP_IF2_FALSE_POP', '*r')):
-            rpl(cmds,[a,b,c,[('(IF',) + d[2:], e, (')ENDIF',)], ('JUMP',d[1])])
+            rpl(cmds,[pos__a,pos__b,pos__c,[('(IF',) + pos__d[2:], pos__e, (')ENDIF',)], ('JUMP',pos__d[1])])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*', (':',1,1), 'POP_BLOCK', ('::', 0))):
-            rpl(cmds,[[('(FOR', b[2], a[2]) , c, (')ENDFOR',)]])
+            rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]) , pos__c, (')ENDFOR',)]])
             return True 
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3, 2), 'J_LOOP_VARS', \
                     'xJUMP_IF2_TRUE_POP_CONTINUE', '*', 'JUMP_CONTINUE', \
-                    (':', 2, 1), 'POP_BLOCK', ('::', 0))) and d[1] == f[1]:
-            rpl(cmds,[[('(FOR', c[2], a[2]) , [('(IF',) +d[2:],\
-                                                    [('CONTINUE',)],(')ENDIF',)]+ e, (')ENDFOR',)]])
+                    (':', 2, 1), 'POP_BLOCK', ('::', 0))) and pos__d[1] == pos__f[1]:
+            rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]) , [('(IF',) +pos__d[2:],\
+                                                    [('CONTINUE',)],(')ENDIF',)]+ pos__e, (')ENDFOR',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3, 1), 'J_LOOP_VARS', \
                     'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', ('::', 0))):
-            rpl(cmds,[[('(FOR', c[2], a[2]) , [('PASS',)], (')ENDFOR',)]])
+            rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]) , [('PASS',)], (')ENDFOR',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*n', (':', 1,1),\
                     'POP_BLOCK', '*r', ('::', 0))):
-            rpl(cmds,[[('(FOR', b[2], a[2]) , c, (')(ELSE',),f, (')ENDFOR',)]])
+            rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]) , pos__c, (')(ELSE',),pos__f, (')ENDFOR',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'xJUMP_IF2_FALSE_POP_CONTINUE', '*n', (':', 2, 1),\
                     'POP_BLOCK', ('::', 0))):       #  1
-            rpl(cmds,[[('(FOR', c[2], a[2]) , \
-                            d + [('(IF',) + e[2:], f, (')ENDIF',)], \
+            rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]) , \
+                            pos__d + [('(IF',) + pos__e[2:], pos__f, (')ENDIF',)], \
                             (')ENDFOR',)]])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,2), 'J_LOOP_VARS', '*n',\
                     'xJUMP_IF2_FALSE_POP_CONTINUE', '*n', 'JUMP_CONTINUE')):       
-            rpl(cmds,[a,b,c,d + [('(IF',) +e[2:], f, (')ENDIF',)], g])
+            rpl(cmds,[pos__a,pos__b,pos__c,pos__d + [('(IF',) +pos__e[2:], pos__f, (')ENDIF',)], pos__g])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3, 2), 'J_LOOP_VARS', \
                      'xJUMP_IF2_TRUE_POP')):
             if type(cmds[i+4]) is list:
-                cmds[i:i+5] = [a,b,c, [('(IF',) +d[2:], [('CONTINUE',)], (')ENDIF',)]+cmds[i+4]]
+                cmds[i:i+5] = [pos__a,pos__b,pos__c, [('(IF',) +pos__d[2:], [('CONTINUE',)], (')ENDIF',)]+cmds[i+4]]
             else:          
-                cmds[i:i+4] = [a,b,c, [('(IF',) +d[2:], [('CONTINUE',)], (')ENDIF',)]]
+                cmds[i:i+4] = [pos__a,pos__b,pos__c, [('(IF',) +pos__d[2:], [('CONTINUE',)], (')ENDIF',)]]
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 3,1), 'J_LOOP_VARS', \
                      'xJUMP_IF2_TRUE_POP')):
             if type(cmds[i+4]) is list:
-                cmds[i:i+5] = [a,c, [('(IF',) +d[2:], [('CONTINUE',)], (')ENDIF',)]+cmds[i+4]]
+                cmds[i:i+5] = [pos__a,pos__c, [('(IF',) +pos__d[2:], [('CONTINUE',)], (')ENDIF',)]+cmds[i+4]]
             else:                 
-                cmds[i:i+4] = [a,c, [('(IF',) +d[2:], [('CONTINUE',)], (')ENDIF',)]]
+                cmds[i:i+4] = [pos__a,pos__c, [('(IF',) +pos__d[2:], [('CONTINUE',)], (')ENDIF',)]]
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,2), 'J_LOOP_VARS', '*n',\
                     'xJUMP_IF2_FALSE_POP_CONTINUE', '*n')):       
-            rpl(cmds,[a,b,c,d+ [('(IF', Not(e[2])), [('CONTINUE',)], (')ENDIF',)]+f])
+            rpl(cmds,[pos__a,pos__b,pos__c,pos__d+ [('(IF', Not(pos__e[2])), [('CONTINUE',)], (')ENDIF',)]+pos__f])
             return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,0), 'J_LOOP_VARS', '*n', 'JUMP')):
-        rpl(cmds,[a,b,c,d,('JUMP_CONTINUE',) + e[1:]])
+        rpl(cmds,[pos__a,pos__b,pos__c,pos__d,('JUMP_CONTINUE',) + pos__e[1:]])
         return True
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*r', (':', 1,1),\
                     'POP_BLOCK', '*n', ('::', 0))):
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')(ELSE',),f,(')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')(ELSE',),pos__f,(')ENDFOR',)]])
         return True    
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'JUMP_CONTINUE', (':', 2,1), 'POP_BLOCK', '*n', ('::', 0))):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',),h_,(')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',),pos__h,(')ENDFOR',)]])
         return True    
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'ju', (':', 2,1), 'POP_BLOCK', '*r', ('::', 0))):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',),h_,(')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',),pos__h,(')ENDFOR',)]])
         return True    
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4, 1), 'J_LOOP_VARS', '*n', 'ju',\
-                    (':', 2,1), 'POP_BLOCK', '*n', 'ju')) and a[1] == i_[1]:
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',),h_,(')ENDFOR',)],i_])
+                    (':', 2,1), 'POP_BLOCK', '*n', 'ju')) and pos__a[1] == pos__i[1]:
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',),pos__h,(')ENDFOR',)],pos__i])
         return True    
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
-                    'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', 'JUMP')) and h_[1] == a[1]:
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')ENDFOR',)],h_])
+                    'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', 'JUMP')) and pos__h[1] == pos__a[1]:
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')ENDFOR',)],pos__h])
         return True  
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
-                    'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', 'JUMP_CONTINUE')) and h_[1] == a[1]:
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')ENDFOR',)],h_])
+                    'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', 'JUMP_CONTINUE')) and pos__h[1] == pos__a[1]:
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')ENDFOR',)],pos__h])
         return True  
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'JUMP_CONTINUE', (':', 2,1), 'POP_BLOCK', 'jc',\
-                    ('::', 0))) and h_[1] not in (b[1],f[1],i_[1]):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',), [('CONTINUE',)],(')ENDFOR',)]])
+                    ('::', 0))) and pos__h[1] not in (pos__b[1],pos__f[1],pos__i[1]):
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',), [('CONTINUE',)],(')ENDFOR',)]])
         return True  
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'JUMP_CONTINUE', (':', 2,1), 'POP_BLOCK', 'ju', \
                     '.:', 'END_FINALLY', ('::', 0))) and \
-                    h_[1] not in (a[1], b[1],c[1],e[1],f[1]) and\
-                    i_[1] not in (a[1], b[1],c[1],e[1],f[1]):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')ENDFOR',)],h_,i_,j_])
+                    pos__h[1] not in (pos__a[1], pos__b[1],pos__c[1],pos__e[1],pos__f[1]) and\
+                    pos__i[1] not in (pos__a[1], pos__b[1],pos__c[1],pos__e[1],pos__f[1]):
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')ENDFOR',)],pos__h,pos__i,pos__j])
         return True  
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', '*r',\
-                    '.:', 'END_FINALLY', ('::', 0))) and i_[1] not in [b[1], f[1],k_[1]]:
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',), h_,(')ENDFOR',)],i_,j_])
+                    '.:', 'END_FINALLY', ('::', 0))) and pos__i[1] not in [pos__b[1], pos__f[1],pos__k[1]]:
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',), pos__h,(')ENDFOR',)],pos__i,pos__j])
         return True         
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*r', (':', 1,1), \
                     'POP_BLOCK', '*r', ('::', 0))):
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')(ELSE',), f,(')ENDFOR',)]])
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')(ELSE',), pos__f,(')ENDFOR',)]])
         return True         
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*r', (':', 1,1),\
-                    'POP_BLOCK', 'JUMP_CONTINUE')) and a[1] == f[1]:
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')ENDFOR',)],f])
+                    'POP_BLOCK', 'JUMP_CONTINUE')) and pos__a[1] == pos__f[1]:
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')ENDFOR',)],pos__f])
         return True        
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', 'J_LOOP_VARS', '*r', (':', 1,1),\
-                    'POP_BLOCK', 'JUMP')) and a[1] == f[1]:
-        rpl(cmds,[[('(FOR', b[2], a[2]), c[:], (')ENDFOR',)],f])
+                    'POP_BLOCK', 'JUMP')) and pos__a[1] == pos__f[1]:
+        rpl(cmds,[[('(FOR', pos__b[2], pos__a[2]), pos__c[:], (')ENDFOR',)],pos__f])
         return True   
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'JUMP_CONTINUE', (':', 2,1), 'POP_BLOCK', '*r', '.:')) \
-                    and i_[1] != a[1]:
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',), h_, (')ENDFOR',)],i_])
+                    and pos__i[1] != pos__a[1]:
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',), pos__h, (')ENDFOR',)],pos__i])
         return True   
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,2), 'J_LOOP_VARS', '*n',\
                     'xJUMP_IF2_TRUE_POP')):
-        rpl(cmds,[a,b,c,d,('JUMP_IF2_TRUE_POP_CONTINUE',)+e[1:]])
+        rpl(cmds,[pos__a,pos__b,pos__c,pos__d,('JUMP_IF2_TRUE_POP_CONTINUE',)+pos__e[1:]])
         return True   
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4,1), 'J_LOOP_VARS', '*n',\
                     'xJUMP_IF2_TRUE_POP')):
-        rpl(cmds,[a,c,d,('JUMP_IF2_TRUE_POP_CONTINUE',)+e[1:]])
+        rpl(cmds,[pos__a,pos__c,pos__d,('JUMP_IF2_TRUE_POP_CONTINUE',)+pos__e[1:]])
         return True       
     if SCmp(cmds,i, ('J_SETUP_LOOP_FOR', (':', 4, 1), 'J_LOOP_VARS', '*n', \
                     'JUMP_CONTINUE', (':', 2, 1), 'POP_BLOCK', '*r',\
                     'END_FINALLY', ('::', 0))):
-        rpl(cmds,[[('(FOR', c[2], a[2]), d[:], (')(ELSE',), h_, (')ENDFOR',)],i_])
+        rpl(cmds,[[('(FOR', pos__c[2], pos__a[2]), pos__d[:], (')(ELSE',), pos__h, (')ENDFOR',)],pos__i])
         return True   
     return False
 
 def process_begin_try(cmds,i):
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP_CONTINUE', (':', 4, 1),\
                     'END_FINALLY', (':', 3, 1), '*r')):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')(ELSE',),k_, (')ENDTRY',)],g])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')(ELSE',),pos__k, (')ENDTRY',)],pos__g])
              return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP', (':', 4, 1),\
-                    'END_FINALLY', (':', 3, 1), '*r')) and g[1] not in (d[1],e[1]):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')(ELSE',),k_, (')ENDTRY',)],g])
+                    'END_FINALLY', (':', 3, 1), '*r')) and pos__g[1] not in (pos__d[1],pos__e[1]):
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')(ELSE',),pos__k, (')ENDTRY',)],pos__g])
              return True      
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 4, 1), 'END_FINALLY',\
                     (':', 3, 1), '*r', ('::', 5))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('PASS',)], (')(ELSE',),j_, (')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('PASS',)], (')(ELSE',),pos__j, (')ENDTRY',)]])
              return True      
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     'JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP', (':', 4,1), 'END_FINALLY',\
                     (':', 3, 1), '*n', ('::', 6))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')(ELSE',),k_, (')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')(ELSE',),pos__k, (')ENDTRY',)]])
              return True      
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 4, 1), 'END_FINALLY',\
                     (':', 3, 1), '*n', ('::', 5))):
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('PASS',)], (')(ELSE',),j_, (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('PASS',)], (')(ELSE',),pos__j, (')ENDTRY',)]])
                 return True 
                   
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 4, 1),\
                     'END_FINALLY', ('::', (3,5)))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('PASS',)],(')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('PASS',)],(')ENDTRY',)]])
              return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 3, 1),\
                     'END_FINALLY', ('::', 4))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], [('PASS',)],(')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], [('PASS',)],(')ENDTRY',)]])
              return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP', (':', 4, 1),\
                     'END_FINALLY', ('::', (3,6)))):
-            rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')ENDTRY',)]])
+            rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')ENDTRY',)]])
             return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*l', 'POP_TOP3', '*', 'JUMP', 'END_FINALLY', ('::', (3,7)))):
-            rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), g, (')ENDTRY',)]])
+            rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), pos__g, (')ENDTRY',)]])
             return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*l', 'POP_TOP3', 'JUMP', 'END_FINALLY', ('::', (3,6)))):
-            rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('PASS',)], (')ENDTRY',)]])
+            rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('PASS',)], (')ENDTRY',)]])
             return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'POP_TOP3', '*n', 'END_FINALLY', ('::', 3))):
-            rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), f, (')ENDTRY',)]])
+            rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), pos__f, (')ENDTRY',)]])
             return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
                     '*', 'JUMP', (':', 3, 1), 'END_FINALLY', ('::', 5))):
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], e, (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], pos__e, (')ENDTRY',)]])
                 return True               
     ## if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP',\ # By CloneDigger
                     ## 'JUMP', (':', 3, 1), 'END_FINALLY', ('::', 4))):
-                ## rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], [('PASS',)], (')ENDTRY',)]])
+                ## rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], [('PASS',)], (')ENDTRY',)]])
                 ## return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
-                    '*', 'JUMP', (':', 3, 1), 'END_FINALLY', 'JUMP')) and f[1] == i_[1]:
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], e, (')ENDTRY',)],i_])
+                    '*', 'JUMP', (':', 3, 1), 'END_FINALLY', 'JUMP')) and pos__f[1] == pos__i[1]:
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], pos__e, (')ENDTRY',)],pos__i])
              return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
-                    'JUMP', (':', 3,1), 'END_FINALLY', 'JUMP')) and e[1] == h_[1]:
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], [('PASS',)], (')ENDTRY',)],h_])
+                    'JUMP', (':', 3,1), 'END_FINALLY', 'JUMP')) and pos__e[1] == pos__h[1]:
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], [('PASS',)], (')ENDTRY',)],pos__h])
              return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
                     '*r', (':', 3,1), 'END_FINALLY')):         
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], e, (')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], pos__e, (')ENDTRY',)]])
              return True     
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     'JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 4, 1), 'END_FINALLY',\
-                    (':', 3,1), '*n', 'JUMP')) and k_[1] not in(d[1],e[1]):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')(ELSE',),j_, (')ENDTRY',)],k_])
+                    (':', 3,1), '*n', 'JUMP')) and pos__k[1] not in(pos__d[1],pos__e[1]):
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')(ELSE',),pos__j, (')ENDTRY',)],pos__k])
              return True     
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     'JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 4, 1), 'END_FINALLY',\
                     ('::', 3))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')ENDTRY',)]])
              return True     
     if SCmp(cmds,i, ('(BEGIN_TRY', ('!', 'PASS'), ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', (':', 3,1), '*n', ('::', 4))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('PASS',)],(')(ELSE',),h_, (')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('PASS',)],(')(ELSE',),pos__h, (')ENDTRY',)]])
              return True     
     if SCmp(cmds,i, ('(BEGIN_TRY', ('!', 'PASS'), ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', ('::', (3,4)))):
-             rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('PASS',)],(')ENDTRY',)]])
+             rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('PASS',)],(')ENDTRY',)]])
              return True     
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', \
-                    (':', 4,1), 'END_FINALLY', (':', 3,1), '*n', 'JUMP_CONTINUE')) and f[1] == k_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('CONTINUE',)], (')(ELSE',),j_, (')ENDTRY',)],k_])
+                    (':', 4,1), 'END_FINALLY', (':', 3,1), '*n', 'JUMP_CONTINUE')) and pos__f[1] == pos__k[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('CONTINUE',)], (')(ELSE',),pos__j, (')ENDTRY',)],pos__k])
                 return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', \
-                    (':', 4,1), 'END_FINALLY', (':', 3,1), '*n', 'JUMP')) and f[1] == k_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('CONTINUE',)], (')(ELSE',),j_, (')ENDTRY',)],k_])
+                    (':', 4,1), 'END_FINALLY', (':', 3,1), '*n', 'JUMP')) and pos__f[1] == pos__k[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('CONTINUE',)], (')(ELSE',),pos__j, (')ENDTRY',)],pos__k])
                 return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'END_FINALLY', ('::', 3))):
-            rpl(cmds,[concatenate_try_except(b, e)])
+            rpl(cmds,[concatenate_try_except(pos__b, pos__e)])
             return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP', (':', 4, 1),\
-                    'END_FINALLY', 'JUMP')) and d[1] == g[1] and d[1] == j_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')ENDTRY',)],g])
+                    'END_FINALLY', 'JUMP')) and pos__d[1] == pos__g[1] and pos__d[1] == pos__j[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')ENDTRY',)],pos__g])
                 return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP_CONTINUE', (':', 4, 1),\
-                    'END_FINALLY', 'JUMP_CONTINUE')) and d[1] == g[1] and d[1] == j_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')ENDTRY',)],g])
+                    'END_FINALLY', 'JUMP_CONTINUE')) and pos__d[1] == pos__g[1] and pos__d[1] == pos__j[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')ENDTRY',)],pos__g])
                 return True               
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', (':', 4, 1),\
-                    'END_FINALLY', 'JUMP_CONTINUE')) and d[1] == f[1] and d[1] == i_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('PASS',)], (')ENDTRY',)],f])
+                    'END_FINALLY', 'JUMP_CONTINUE')) and pos__d[1] == pos__f[1] and pos__d[1] == pos__i[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('PASS',)], (')ENDTRY',)],pos__f])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', \
                     'J_IF_NO_EXCEPT_IN_TRY', '*e',\
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
                     'JUMP_CONTINUE')) and\
-                    d[1] == f[1] and d[1] == h_[1]:
-                rpl(cmds,[concatenate_try_except(b,e), h_])
+                    pos__d[1] == pos__f[1] and pos__d[1] == pos__h[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e), pos__h])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', \
                     'J_IF_NO_EXCEPT_IN_TRY', '*e',\
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY',\
                     '.:', 'ju')) and\
-                    d[1] == f[1] and d[1] == i_[1] and h_[1] not in (d[1], f[1], i_[1]):
-                rpl(cmds,[concatenate_try_except(b,e), h_, i_])
+                    pos__d[1] == pos__f[1] and pos__d[1] == pos__i[1] and pos__h[1] not in (pos__d[1], pos__f[1], pos__i[1]):
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e), pos__h, pos__i])
                 return True             
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', \
                     'J_IF_NO_EXCEPT_IN_TRY', '*e',\
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY',\
                     'ju')) and\
-                    d[1] == f[1] and d[1] == h_[1]:
-                rpl(cmds,[concatenate_try_except(b,e), h_])
+                    pos__d[1] == pos__f[1] and pos__d[1] == pos__h[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e), pos__h])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', \
                     'J_IF_NO_EXCEPT_IN_TRY', '*e',\
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY',\
                     ('::', (3,5)))):
-           rpl(cmds,[concatenate_try_except(b,e)])
+           rpl(cmds,[concatenate_try_except(pos__b,pos__e)])
            return True 
     ## if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \ # By CloneDigger
                     ## 'JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 4, 1), 'END_FINALLY',\
                     ## ('::', 3))):
-                ## rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f, (')ENDTRY',)]])
+                ## rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f, (')ENDTRY',)]])
                 ## return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
-                    '*e', 'END_FINALLY', 'JUMP')) and d[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,e), g])
+                    '*e', 'END_FINALLY', 'JUMP')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e), pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
-                    '*e', 'END_FINALLY', 'JUMP_CONTINUE')) and d[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,e), g])
+                    '*e', 'END_FINALLY', 'JUMP_CONTINUE')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e), pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', \
                     (':', 4,1), 'END_FINALLY', ('::', 3))):
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], f + [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], pos__f + [('CONTINUE',)], (')ENDTRY',)]])
                 return True 
     if  SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3, 1),\
                     '*n', ('::', 5))):
-                rpl(cmds,[concatenate_try_except(b,e,i_)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', ('::', 4))):
-                rpl(cmds,[concatenate_try_except(b,d)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d)])
                 return True
     ## if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \ # By CloneDigger
                     ## '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3, 1),\
                     ## '*n', ('::', 5))):
-                ## rpl(cmds,[concatenate_try_except(b,e,i_)])
+                ## rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i)])
                 ## return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 4,1), 'END_FINALLY', \
                     (':', 3, 1), '*n', ('::', 5))):
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + e[2:], [('PASS',)], (')(ELSE',),j_, (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__e[2:], [('PASS',)], (')(ELSE',),pos__j, (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
                     '*n', (':', 3, 1), 'END_FINALLY')):            
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) + d[2:], e, (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) + pos__d[2:], pos__e, (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', 'JUMP_CONTINUE')) and\
-                    d[1] == f[1] and f[1] == h_[1]:
-                rpl(cmds,[concatenate_try_except(b,e),h_])
+                    pos__d[1] == pos__f[1] and pos__f[1] == pos__h[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__h])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
-                    (':', 3, 1), '*n', 'JUMP_CONTINUE')) and f[1] == j_[1]:
-                rpl(cmds,[concatenate_try_except(b,e,i_),j_])
+                    (':', 3, 1), '*n', 'JUMP_CONTINUE')) and pos__f[1] == pos__j[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i),pos__j])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE',\
-                    'END_FINALLY', 'JUMP_CONTINUE')) and e[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,d),g])
+                    'END_FINALLY', 'JUMP_CONTINUE')) and pos__e[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d),pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE',\
-                    'END_FINALLY', 'JUMP')) and e[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,d),g])
+                    'END_FINALLY', 'JUMP')) and pos__e[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d),pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*l', 'POP_TOP3', 'JUMP', 'END_FINALLY', (':', 3,1),\
                     '*n', ('::', 6))):
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('PASS',)], (')(ELSE',),j_, (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('PASS',)], (')(ELSE',),pos__j, (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 4, 1), 'END_FINALLY',\
-                    'JUMP')) and d[1] == f[1] and f[1] ==i_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) +e[2:], [('PASS',)], (')ENDTRY',)],i_])
+                    'JUMP')) and pos__d[1] == pos__f[1] and pos__f[1] ==pos__i[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) +pos__e[2:], [('PASS', )], (')ENDTRY',)],pos__i])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 4,1), 'END_FINALLY',\
-                    'JUMP')) and d[1] == i_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) +e[2:], f, (')ENDTRY',)],i_])
+                    'JUMP')) and pos__d[1] == pos__i[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) +pos__e[2:], pos__f, (')ENDTRY',)],pos__i])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                    'JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 4,1), 'END_FINALLY',\
-                   'JUMP_CONTINUE')) and d[1] == i_[1]:
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) +e[2:], f, (')ENDTRY',)],i_])
+                   'JUMP_CONTINUE')) and pos__d[1] == pos__i[1]:
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) +pos__e[2:], pos__f, (')ENDTRY',)],pos__i])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     'JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', (':', 4, 1),\
                     'END_FINALLY', ('::', 3))):       #  1
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',) +e[2:], [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',) +pos__e[2:], [('CONTINUE',)], (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'END_FINALLY', ('::',3))):
-                rpl(cmds,[concatenate_try_except(b,e)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', '*e', \
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', ('::', 4))):
-                rpl(cmds,[concatenate_try_except(b,d)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     ('!', '(EXCEPT1', '*n', ')ENDEXCEPT'), 'J_AFTER_EXCEPT_HANDLE_CONTINUE', \
                     'END_FINALLY', 'JUMP')) and\
-                    d[1] == h_[1] and f[1] != d[1]:
-                tempor = e[:-1]
+                    pos__d[1] == pos__h[1] and pos__f[1] != pos__d[1]:
+                tempor = pos__e[:-1]
                 if len(tempor[-1][0]) > 0 and tempor[-1][0][0] == 'PASS':
                     tempor[-1] = [('CONTINUE',)]
                 else:   
                     tempor[-1].append(('CONTINUE',))        
-                tempor = tempor + [e[-1]]                
-                rpl(cmds,[concatenate_try_except(b,tempor), h_])
+                tempor = tempor + [pos__e[-1]]                
+                rpl(cmds,[concatenate_try_except(pos__b,tempor), pos__h])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     ('!', '(EXCEPT1', '*n', ')ENDEXCEPT'), 'J_AFTER_EXCEPT_HANDLE_CONTINUE', \
-                    'END_FINALLY', ('::',3))) and f[1] != d[1]:
-                tempor = e[:-1]
+                    'END_FINALLY', ('::',3))) and pos__f[1] != pos__d[1]:
+                tempor = pos__e[:-1]
                 if len(tempor[-1][0]) > 0 and tempor[-1][0][0] == 'PASS':
                     tempor[-1] = [('CONTINUE',)]
                 else:   
                     tempor[-1].append(('CONTINUE',))        
-                tempor = tempor + [e[-1]]
-                rpl(cmds,[concatenate_try_except(b,tempor)])
+                tempor = tempor + [pos__e[-1]]
+                rpl(cmds,[concatenate_try_except(pos__b,tempor)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3, 1),\
                     '*r', ('::', 5))):       #  1            
-                rpl(cmds,[concatenate_try_except(b,e,i_)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*c', ')END_BEGIN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', ('::', 4))):
-                rpl(cmds,[concatenate_try_except(b,d)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3,1),\
-                    '*n', 'JUMP')) and f[1] == j_[1]:
-                rpl(cmds,[concatenate_try_except(b,e,i_),j_])
+                    '*n', 'JUMP')) and pos__f[1] == pos__j[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i),pos__j])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                      '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', ('::', (3,5)))):
-        rpl(cmds,[concatenate_try_except(b,e)])
+        rpl(cmds,[concatenate_try_except(pos__b,pos__e)])
         return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
-                    '*e', 'END_FINALLY', 'JUMP')) and d[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,e),g])
+                    '*e', 'END_FINALLY', 'JUMP')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'END_FINALLY', ('::', 3))):       #  2
-                rpl(cmds,[concatenate_try_except(b,e)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', 'JUMP')) and\
-                    d[1] == f[1] == h_[1]:            
-                rpl(cmds,[concatenate_try_except(b,e),h_])
+                    pos__d[1] == pos__f[1] == pos__h[1]:            
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__h])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
-                    '*e', 'END_FINALLY', 'ju')) and d[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,e),g])
+                    '*e', 'END_FINALLY', 'ju')) and pos__d[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__g])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3,1), '*n',\
-                    'JUMP_CONTINUE')) and f[1] == j_[1]:
-                rpl(cmds,[concatenate_try_except(b,e,i_),j_])
+                    'JUMP_CONTINUE')) and pos__f[1] == pos__j[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i),pos__j])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', 'JUMP_CONTINUE')) and\
-                    d[1] == f[1] == h_[1]:
-                rpl(cmds,[concatenate_try_except(b,e),h_])
+                    pos__d[1] == pos__f[1] == pos__h[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__h])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY',\
                     ('!', '(EXCEPT1', ('!', 'PASS'), ')ENDEXCEPT'), \
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', ('::', 3))):
-                rpl(cmds,[[('(TRY',), b, ('(EXCEPT',) + e[0][1:], [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, ('(EXCEPT',) + pos__e[0][1:], [('CONTINUE',)], (')ENDTRY',)]])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', \
                     'J_IF_NO_EXCEPT_IN_TRY', 'JUMP_IF_NOT_EXCEPTION_POP', \
                     '*n', 'JUMP_CONTINUE', (':', 4,1), 'END_FINALLY', ('::', 3))):
-                rpl(cmds,[[('(TRY',), b, ('(EXCEPT',) + e[2:], f+[('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, ('(EXCEPT',) + pos__e[2:], pos__f+[('CONTINUE',)], (')ENDTRY',)]])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', '*e', \
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
-                    'JUMP_CONTINUE')) and e[1] == g[1]:
-                rpl(cmds,[concatenate_try_except(b,d),g])
+                    'JUMP_CONTINUE')) and pos__e[1] == pos__g[1]:
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d),pos__g])
                 return True                        
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3,1),\
                     '*n', ('::', 5))):
-                rpl(cmds,[concatenate_try_except(b,e,i_)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i)])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', \
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
                     (':', 3, 1), '*r')):                   
-                rpl(cmds,[concatenate_try_except(b,e,i_),('JUMP_CONTINUE', f[1])])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i),('JUMP_CONTINUE', pos__f[1])])
                 return True
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     ('!', '.L', '(EXCEPT0', ('!', 'PASS'), ')ENDEXCEPT'),\
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', ('::', 3))):       #  2             
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     ('!', '(EXCEPT0', ('!', 'PASS'), ')ENDEXCEPT'),\
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', ('::', 3))):       #  2             
-                rpl(cmds,[[('(TRY',), b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',), pos__b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
                 return True                     
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     ('!', '.L', '(EXCEPT1', ('!', 'PASS'), ')ENDEXCEPT'),\
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', ('::', 3))):       #  2             
-                rpl(cmds,[[('(TRY',e[1][1]), b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',pos__e[1][1]), pos__b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
                 return True 
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     ('!', '(EXCEPT1', ('!', 'PASS'), ')ENDEXCEPT'),\
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY', ('::', 3))):       #  2             
-                rpl(cmds,[[('(TRY',e[0][1]), b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
+                rpl(cmds,[[('(TRY',pos__e[0][1]), pos__b, (')(EXCEPT',), [('CONTINUE',)], (')ENDTRY',)]])
                 return True    
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', 'JUMP_CONTINUE', \
-                    ('::', 5))) and d[1] == h_[1]:       #  1            
-                rpl(cmds,[concatenate_try_except(b,e,[('CONTINUE',)])])
+                    ('::', 5))) and pos__d[1] == pos__h[1]:       #  1            
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,[('CONTINUE',)])])
                 return True                                    
     if SCmp(cmds,i, ('(BEGIN_TRY', '*', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3, 1),\
-                    '*', '.:', 'END_FINALLY', ('::', 5))) and not islineblock(i_) and\
-                    j_[1] not in (d[1],f[1]):
-                rpl(cmds,[concatenate_try_except(b,e,i_), j_,k_])
+                    '*', '.:', 'END_FINALLY', ('::', 5))) and not islineblock(pos__i) and\
+                    pos__j[1] not in (pos__d[1],pos__f[1]):
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i), pos__j,pos__k])
                 return True                                    
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY', '*e', 'END_FINALLY')):
-                rpl(cmds,[concatenate_try_except(b,d)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__d)])
                 return True      
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', 'JUMP_CONTINUE', '.:', '*n', (':', (3,5), 1),\
-                    'JUMP_CONTINUE')) and h_[1] == l_[1] and i_[1] not in (d[1], h_[1]):
-                rpl(cmds,[concatenate_try_except(b,e),h_,i_,j_,l_])
+                    'JUMP_CONTINUE')) and pos__h[1] == pos__l[1] and pos__i[1] not in (pos__d[1], pos__h[1]):
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__h,pos__i,pos__j,pos__l])
                 return True      
     if SCmp(cmds,i, ('(BEGIN_TRY', '*n', ')END_BEGIN_TRY',\
                     'J_IF_NO_EXCEPT_IN_TRY', '*e', 'J_AFTER_EXCEPT_HANDLE', \
                     'END_FINALLY', 'JUMP_CONTINUE', '.:', '*n', (':', (3,5), 2),\
-                    'JUMP_CONTINUE')) and h_[1] == l_[1] and i_[1] not in (d[1], h_[1]):
-                rpl(cmds,[concatenate_try_except(b,e),h_,i_,j_,k_,l_])
+                    'JUMP_CONTINUE')) and pos__h[1] == pos__l[1] and pos__i[1] not in (pos__d[1], pos__h[1]):
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e),pos__h,pos__i,pos__j,pos__k,pos__l])
                 return True              
     if SCmp(cmds,i, ('(BEGIN_TRY', '*r', ')END_BEGIN_TRY', 'J_IF_NO_EXCEPT_IN_TRY', \
                     '*e', 'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 3, 1),\
                     '*r', ('::', 5))):
-                rpl(cmds,[concatenate_try_except(b,e,i_)])
+                rpl(cmds,[concatenate_try_except(pos__b,pos__e,pos__i)])
                 return True              
     return False
 
 def process_except_clause(cmds,i):
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
     if SCmp(cmds,i, ('POP_TOP3', '*r', 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT0',), b, (')ENDEXCEPT',)],c])
+        rpl(cmds,[[('(EXCEPT0',), pos__b, (')ENDEXCEPT',)],pos__c])
         return True
     if SCmp(cmds,i, ('POP_TOP3', '*n', 'JUMP_CONTINUE', 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT0',), b + [('CONTINUE',)], (')ENDEXCEPT',)],d])
+        rpl(cmds,[[('(EXCEPT0',), pos__b + [('CONTINUE',)], (')ENDEXCEPT',)],pos__d])
         return True
     if SCmp(cmds,i, ('POP_TOP3', 'JUMP_CONTINUE', 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT0',), [('CONTINUE',)], (')ENDEXCEPT',)],c])
+        rpl(cmds,[[('(EXCEPT0',), [('CONTINUE',)], (')ENDEXCEPT',)],pos__c])
         return True
     if SCmp(cmds,i, ('POP_TOP3', 'JUMP', 'END_FINALLY')):
-        if not islooplabel(b[1],cmds):
-           rpl(cmds,[[('(EXCEPT0',), [('PASS',)], (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', b[1]),c])
+        if not islooplabel(pos__b[1],cmds):
+           rpl(cmds,[[('(EXCEPT0',), [('PASS',)], (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', pos__b[1]),pos__c])
         else:   
-           rpl(cmds,[[('(EXCEPT0',), [('CONTINUE',)], (')ENDEXCEPT',)],c])
+           rpl(cmds,[[('(EXCEPT0',), [('CONTINUE',)], (')ENDEXCEPT',)],pos__c])
         return True
     if SCmp(cmds,i, ('POP_TOP3', '*n', 'JUMP', 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT0',), b, (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', c[1]),d])
+        rpl(cmds,[[('(EXCEPT0',), pos__b, (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', pos__c[1]),pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], b, (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', c[1]),e])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], pos__b, (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', pos__c[1]),pos__e])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], b + [('CONTINUE',)], (')ENDEXCEPT',)],e])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], pos__b + [('CONTINUE',)], (')ENDEXCEPT',)],pos__e])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], b, (')ENDEXCEPT',)],d])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], pos__b, (')ENDEXCEPT',)],pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], [('PASS',)], (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', b[1]),d])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], [('PASS',)], (')ENDEXCEPT',)],('J_AFTER_EXCEPT_HANDLE', pos__b[1]),pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], [('CONTINUE',)], (')ENDEXCEPT',)],d])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], [('CONTINUE',)], (')ENDEXCEPT',)],pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', (':', 0,1), 'END_FINALLY')):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], b, (')ENDEXCEPT',)], d])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], pos__b, (')ENDEXCEPT',)], pos__d])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'xJUMP_IF2_FALSE_POP', '*r',\
                     (':', 0, 1), 'END_FINALLY', '.:', '*n', ('::', 1))) and\
-                    a[1] != f[1] != b[1]:
-        rpl(cmds,[a, [('(IF', b[2]), c, (')ENDIF',)], d,e,f,g])
+                    pos__a[1] != pos__f[1] != pos__b[1]:
+        rpl(cmds,[pos__a, [('(IF', pos__b[2]), pos__c, (')ENDIF',)], pos__d,pos__e,pos__f,pos__g])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n',\
                     'xJUMP_IF2_FALSE_POP', '*n', \
                     'JUMP_CONTINUE', (':',0 ,1), \
                     'END_FINALLY', ('::', 2))):
-        rpl(cmds,[[('(EXCEPT1',) +a[2:], b + \
-                                 [('(IF',) + c[2:], d + [('CONTINUE',)], (')ENDIF',)],\
-                         (')ENDEXCEPT',)], g])
+        rpl(cmds,[[('(EXCEPT1',) +pos__a[2:], pos__b + \
+                                 [('(IF',) + pos__c[2:], pos__d + [('CONTINUE',)], (')ENDIF',)],\
+                         (')ENDEXCEPT',)], pos__g])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', (':', 0, 1), \
                     ('!', '(EXCEPT1', '*r', ')ENDEXCEPT'), 'END_FINALLY')):
-        cmds[i:i+6] = [concatenate_except(a[2:], b + [('CONTINUE',)], e),f]
+        cmds[i:i+6] = [concatenate_except(pos__a[2:], pos__b + [('CONTINUE',)], pos__e),pos__f]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', (':', 0, 1), \
-                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and c[1] == f[1]:
-        cmds[i:i+6] = [concatenate_except(a[2:], b + [('CONTINUE',)], e),f]
+                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and pos__c[1] == pos__f[1]:
+        cmds[i:i+6] = [concatenate_except(pos__a[2:], pos__b + [('CONTINUE',)], pos__e),pos__f]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP', (':', 0, 1), \
-                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and c[1] == f[1]:
-        cmds[i:i+6] = [concatenate_except(a[2:], b, e),f]
+                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and pos__c[1] == pos__f[1]:
+        cmds[i:i+6] = [concatenate_except(pos__a[2:], pos__b, pos__e),pos__f]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', (':', 0, 1), \
-                    '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE')) and b[1] == e[1]:
-        cmds[i:i+5] = [concatenate_except(a[2:], [('PASS',)], d),e]
+                    '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE')) and pos__b[1] == pos__e[1]:
+        cmds[i:i+5] = [concatenate_except(pos__a[2:], [('PASS',)], pos__d),pos__e]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', (':', 0, 1), \
-                    '*e', 'END_FINALLY', 'JUMP_CONTINUE')) and c[1] == g[1]:
-        cmds[i:i+7] = [concatenate_except(a[2:], b, e),f,g]
+                    '*e', 'END_FINALLY', 'JUMP_CONTINUE')) and pos__c[1] == pos__g[1]:
+        cmds[i:i+7] = [concatenate_except(pos__a[2:], pos__b, pos__e),pos__f,pos__g]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', \
-                    (':', 0, 1), '*e', 'J_AFTER_EXCEPT_HANDLE')) and c[1] != f[1]:
-        rpl(cmds,[concatenate_except(a[2:], b + [('CONTINUE',)], e),f])
+                    (':', 0, 1), '*e', 'J_AFTER_EXCEPT_HANDLE')) and pos__c[1] != pos__f[1]:
+        rpl(cmds,[concatenate_except(pos__a[2:], pos__b + [('CONTINUE',)], pos__e),pos__f])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 0, 1), \
-                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and b[1] == e[1]:
-        cmds[i:i+5] = [concatenate_except(a[2:], [('PASS',)], d),e]
+                    '*e', 'J_AFTER_EXCEPT_HANDLE')) and pos__b[1] == pos__e[1]:
+        cmds[i:i+5] = [concatenate_except(pos__a[2:], [('PASS',)], pos__d),pos__e]
         return True
     ## if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 0, 1), \ # By CloneDigger
-                    ## '*e', 'J_AFTER_EXCEPT_HANDLE')) and b[1] == e[1]:
-        ## cmds[i:i+5] = [concatenate_except(a[2:], [('PASS',)], d),e]
+                    ## '*e', 'J_AFTER_EXCEPT_HANDLE')) and pos__b[1] == pos__e[1]:
+        ## cmds[i:i+5] = [concatenate_except(pos__a[2:], [('PASS',)], pos__d),pos__e]
         ## return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*', 'JUMP', (':', 0,1), '*e',
                     'END_FINALLY', ('::', 2))):
-        rpl(cmds,[concatenate_except(a[2:], b, e),f])
+        rpl(cmds,[concatenate_except(pos__a[2:], pos__b, pos__e),pos__f])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 0, 1), '*e',\
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 4, 2))):
-        cmds[i:i+7] = [concatenate_except(a[2:], b, d),e,f,g]
+        cmds[i:i+7] = [concatenate_except(pos__a[2:], pos__b, pos__d),pos__e,pos__f,pos__g]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 0, 1), '*e',\
                     'J_AFTER_EXCEPT_HANDLE', 'END_FINALLY', (':', 4, 1))):
-        cmds[i:i+7] = [concatenate_except(a[2:], b, d),f]
+        cmds[i:i+7] = [concatenate_except(pos__a[2:], pos__b, pos__d),pos__f]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 0, 1), '*e',\
                     'END_FINALLY')):
-        cmds[i:i+5] = [concatenate_except(a[2:], b, d),e]
+        cmds[i:i+5] = [concatenate_except(pos__a[2:], pos__b, pos__d),pos__e]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*r', (':', 0,1), '*e')):       
-        cmds[i:i+4] = [concatenate_except(a[2:], b, d)]
+        cmds[i:i+4] = [concatenate_except(pos__a[2:], pos__b, pos__d)]
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*ra', 'JUMP', (':', 0,1), '*e')) and\
-                    c[1] != a[1]:
-        rpl(cmds,[concatenate_except(a[2:], b, e)])
+                    pos__c[1] != pos__a[1]:
+        rpl(cmds,[concatenate_except(pos__a[2:], pos__b, pos__e)])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP', (':', 0, 1), '*e',\
                     'END_FINALLY', ('::', 1))):
-        rpl(cmds,[concatenate_except(a[2:], [('PASS',)], d),e])
+        rpl(cmds,[concatenate_except(pos__a[2:], [('PASS',)], pos__d),pos__e])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', '*n', 'JUMP_CONTINUE', \
                     (':', 0, 1), '*e', 'END_FINALLY')):          
-        rpl(cmds,[concatenate_except(a[2:], b + [('CONTINUE',)], e),f])
+        rpl(cmds,[concatenate_except(pos__a[2:], pos__b + [('CONTINUE',)], pos__e),pos__f])
         return True
     if SCmp(cmds,i, ('JUMP_IF_NOT_EXCEPTION_POP', 'JUMP_CONTINUE', \
                     (':', 0, 1), '*e', 'END_FINALLY')):          
-        rpl(cmds,[concatenate_except(a[2:], [('CONTINUE',)], d),e])
+        rpl(cmds,[concatenate_except(pos__a[2:], [('CONTINUE',)], pos__d),pos__e])
         return True
     return False
     
@@ -5687,22 +5710,22 @@ def process_after_try_detect(cmds,_i):
                 count_define_set[v0[0]] -= 1
     
 def process_setup_except(cmds,i):
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'xJUMP_IF2_TRUE_POP_CONTINUE', '*l', 'POP_BLOCK')):
-        if type(c) is tuple:
-            rpl(cmds,[a, [('(IF',) + b[2:], [('CONTINUE',)], (')ENDIF',)]+[c],d])
+        if type(pos__c) is tuple:
+            rpl(cmds,[pos__a, [('(IF',) + pos__b[2:], [('CONTINUE',)], (')ENDIF',)]+[pos__c],pos__d])
         else:    
-            rpl(cmds,[a, [('(IF',) + b[2:], [('CONTINUE',)], (')ENDIF',)]+c,d])
+            rpl(cmds,[pos__a, [('(IF',) + pos__b[2:], [('CONTINUE',)], (')ENDIF',)]+pos__c,pos__d])
         return True
-    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*', 'POP_BLOCK', 'JUMP', ('::', 0))) and d[1] != e[1]:
-        rpl(cmds,[('(BEGIN_TRY',), b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', d[1])])
+    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*', 'POP_BLOCK', 'JUMP', ('::', 0))) and pos__d[1] != pos__e[1]:
+        rpl(cmds,[('(BEGIN_TRY',), pos__b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', pos__d[1])])
         return True
-    if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'POP_BLOCK', 'JUMP', ('::', 0))) and d[1] != c[1]:
-        rpl(cmds,[('(BEGIN_TRY',), [('PASS',)], (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', c[1])])
+    if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'POP_BLOCK', 'JUMP', ('::', 0))) and pos__d[1] != pos__c[1]:
+        rpl(cmds,[('(BEGIN_TRY',), [('PASS',)], (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', pos__c[1])])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'JUMP_CONTINUE', 'POP_BLOCK', 'JUMP_CONTINUE', \
-                    (':', 0, 1))) and b[1] == d[1]:
+                    (':', 0, 1))) and pos__b[1] == pos__d[1]:
         rpl(cmds,[('(BEGIN_TRY',), [('CONTINUE',)], (')END_BEGIN_TRY',)])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'POP_BLOCK', 'JUMP_CONTINUE', \
@@ -5710,36 +5733,36 @@ def process_setup_except(cmds,i):
         rpl(cmds,[('(BEGIN_TRY',), [('CONTINUE',)], (')END_BEGIN_TRY',)])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*', 'JUMP_CONTINUE', \
-                    'POP_BLOCK', 'JUMP', ('::', 0))) and e[1] != f[1]:
-        rpl(cmds,[('(BEGIN_TRY',), b + [('CONTINUE',)], (')END_BEGIN_TRY',), \
-                       ('J_IF_NO_EXCEPT_IN_TRY', e[1])])
+                    'POP_BLOCK', 'JUMP', ('::', 0))) and pos__e[1] != pos__f[1]:
+        rpl(cmds,[('(BEGIN_TRY',), pos__b + [('CONTINUE',)], (')END_BEGIN_TRY',), \
+                       ('J_IF_NO_EXCEPT_IN_TRY', pos__e[1])])
         return True
-    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*n', 'JUMP', ('::', 0))) and c[1] != d[1]:
-        rpl(cmds,[('(BEGIN_TRY',), b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', c[1])])
+    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*n', 'JUMP', ('::', 0))) and pos__c[1] != pos__d[1]:
+        rpl(cmds,[('(BEGIN_TRY',), pos__b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', pos__c[1])])
         return True
-    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*n', 'JUMP_CONTINUE', ('::', 0))) and c[1] != d[1]:
-        rpl(cmds,[('(BEGIN_TRY',), b +[('CONTINUE',)], (')END_BEGIN_TRY',)])
+    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*n', 'JUMP_CONTINUE', ('::', 0))) and pos__c[1] != pos__d[1]:
+        rpl(cmds,[('(BEGIN_TRY',), pos__b +[('CONTINUE',)], (')END_BEGIN_TRY',)])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*n', 'JUMP_CONTINUE', 'POP_BLOCK',\
                     'JUMP_CONTINUE', (':', 0,1), '*e')):
-        rpl(cmds,[('(BEGIN_TRY',), b +[('CONTINUE',)], (')END_BEGIN_TRY',),g])
+        rpl(cmds,[('(BEGIN_TRY',), pos__b +[('CONTINUE',)], (')END_BEGIN_TRY',),pos__g])
         return True
-    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*', 'POP_BLOCK', 'JUMP_CONTINUE', ('::', 0))) and d[1] != e[1]:
-        rpl(cmds,[('(BEGIN_TRY',), b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', d[1])])
+    if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*', 'POP_BLOCK', 'JUMP_CONTINUE', ('::', 0))) and pos__d[1] != pos__e[1]:
+        rpl(cmds,[('(BEGIN_TRY',), pos__b, (')END_BEGIN_TRY',), ('J_IF_NO_EXCEPT_IN_TRY', pos__d[1])])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', '*r', ('::', 0))):
-        rpl(cmds,[('(BEGIN_TRY',), b, (')END_BEGIN_TRY',)])
+        rpl(cmds,[('(BEGIN_TRY',), pos__b, (')END_BEGIN_TRY',)])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'JUMP_CONTINUE', 'POP_BLOCK',\
                     'JUMP_CONTINUE', (':', 0,1), '*e', \
                     'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
-                    'JUMP_CONTINUE')) and b[1] == d[1] == g[1] == i_[1]:
-        rpl(cmds,[concatenate_try_except([('CONTINUE',)],f), i_])
+                    'JUMP_CONTINUE')) and pos__b[1] == pos__d[1] == pos__g[1] == pos__i[1]:
+        rpl(cmds,[concatenate_try_except([('CONTINUE',)],pos__f), pos__i])
         return True
     if SCmp(cmds,i, ('J_SETUP_EXCEPT', 'POP_BLOCK', 'JUMP_CONTINUE', (':', 0, 1),\
                     '*e', 'J_AFTER_EXCEPT_HANDLE_CONTINUE', 'END_FINALLY',\
-                    'JUMP_CONTINUE')) and c[1] == f[1] == h_[1]:
-        rpl(cmds,[concatenate_try_except([('PASS',)],e), h_])
+                    'JUMP_CONTINUE')) and pos__c[1] == pos__f[1] == pos__h[1]:
+        rpl(cmds,[concatenate_try_except([('PASS',)],pos__e), pos__h])
         return True    
     return False
     
@@ -5836,7 +5859,7 @@ def isintconst(b):
     ## listerr = {}    
     ## for p in used_cmp.keys():
         ## list_p = list_variant(p)
-        ## d = {}
+        ## pos__d = {}
         ## for p2 in list_p:
             ## d[p2] = True
         ## list_p = d.keys()
@@ -5981,7 +6004,7 @@ def SCmp(cmds,i0,pattern,recursive=False):
     global matched_len
     global matched_tail_label
     global used_cmpl, used_cmp, used_line, matched_cmpl, matched_cmp,matched_line,collect_stat,p2l
-    global a,b,c,d,e,f,g,h_,i_,j_,k_,l_
+    global pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l
 
     tempor = cmds[i0:i0+len(pattern)]
 
@@ -6151,7 +6174,7 @@ def SCmp(cmds,i0,pattern,recursive=False):
        tempor = tempor[0:min(len(pattern),12)]
        while len(tempor) < 12:
            tempor.append('^^') # ibo nefig
-       a,b,c,d,e,f,g,h_,i_,j_,k_,l_ = tempor       
+       pos__a,pos__b,pos__c,pos__d,pos__e,pos__f,pos__g,pos__h,pos__i,pos__j,pos__k,pos__l = tempor       
     return True    
 
 def islineblock(a):
@@ -6200,7 +6223,7 @@ def revert_conditional_jump_over_uncond_jump(cmds):
     while i < ( len(cmds) - 4):            
         a = cmds[i]
         if a[0][:8] == 'JUMP_IF_' and a[0][-4:] == '_POP':
-            b,c,d = cmds[i+1], cmds[i+2], cmds[i+3]
+            b,c, d = cmds[i+1], cmds[i+2], cmds[i+3]
             if b[0] == '.L' and c[0] in jump and d[0] == '.:' and a[1] == d[1]:
                 if a[0] == 'JUMP_IF_FALSE_POP':
                     e = 'JUMP_IF_TRUE_POP'
@@ -7119,10 +7142,10 @@ def label_method_class(co):
         assert len(li) == 1
         cl = li[0][0]
         all_co[co].method_class = cl
-        if Is3(cl, 'CalcConstNewClass'):
+        if Is3(cl, 'CalcConstNewClass') and not Is3(cl, 'CalcConstOldClass'):
             all_co[co].method_new_class = True
             all_co[co].method_any_class = True
-        elif Is3(cl, 'CalcConstOldClass'):
+        elif Is3(cl, 'CalcConstOldClass') and not Is3(cl, 'CalcConstNewClass') :
             all_co[co].method_old_class = True
             all_co[co].method_any_class = True
     
@@ -7403,8 +7426,8 @@ enum why_code {
 #define c_PyCmp_EQ_String(v,l,w,w2) ((PyString_CheckExact(v))?(PyString_GET_SIZE(v) == l && memcmp(PyString_AS_STRING(v),w,l) == 0) : (PyObject_RichCompareBool(v, w2, PyCmp_EQ)))
 #define c_PyCmp_NE_String(v,l,w,w2) ((PyString_CheckExact(v))?(PyString_GET_SIZE(v) != l || memcmp(PyString_AS_STRING(v),w,l) != 0) : (PyObject_RichCompareBool(v, w2, PyCmp_NE)))
 
-#define _c_PyCmp_EQ_String(v,l,w)  (PyString_GET_SIZE(v) == l && memcmp(PyString_AS_STRING(v),w,l) == 0) 
-#define _c_PyCmp_NE_String(v,l,w)  (PyString_GET_SIZE(v) != l || memcmp(PyString_AS_STRING(v),w,l) != 0) 
+#define _c_PyCmp_EQ_String(v,l,w)  ((PyString_GET_SIZE(v) == l) && memcmp(PyString_AS_STRING(v),w,l) == 0) 
+#define _c_PyCmp_NE_String(v,l,w)  ((PyString_GET_SIZE(v) != l) || (memcmp(PyString_AS_STRING(v),w,l) != 0)) 
 
 #define FirstCFunctionCall(a,b,c)  ((PyCFunction_Check (a)) ? ( PyCFunction_Call(a,b,c) ) : ( PyObject_Call(a,b,c) ))
 
@@ -10166,6 +10189,14 @@ def generate_statement(head,it, o):
                         type(acc[0][1]) is float):
                        return generate_mixed_float_expr(it,acc,o, isfloat)
             ref = Expr1(it[2][0], o)
+            if it[2][0][0] == 'FAST':
+                stor = ('STORE_FAST', it[2][0][1])
+                if repr(stor) in repr(it[1][0]):
+                    ref2 = New()
+                    o.Raw(ref2, ' = ', ref, ';')
+                    o.INCREF(ref2)
+                    ref = ref2
+                    ref2 = None
             generate_store(it[1][0], ref, o, it[2][0])
             o.Cls(ref)
             if ref not in g_refs2:
@@ -11922,10 +11953,11 @@ def generate_logical_expr(it, logic = None):
         else:
             Fatal('', it)
         t1 = TypeExpr(it[1])  
-        if t1 == Kl_String:  
-            o.Raw(logic,' = _', it0[1:], '(', ref, ', ', len(s_t), ', ', generate_chars_literal(s_t), ');')
-            o.Cls(ref)
-            return o,logic
+        ## if t1 == Kl_String:  
+## ##            o.Raw('if (!PyString_CheckExact(', ref,')) {printf(\"ooo %d ooo\", __LINE__); exit(1);}')
+            ## o.Raw(logic,' = _', it0[1:], '(', ref, ', ', len(s_t), ', ', generate_chars_literal(s_t), ');')
+            ## o.Cls(ref)
+            ## return o,logic
         if t1 is not None:
             Debug('Typed %s (%s, <str>)' % ( it0, t1), it[1], it[2])     
         o.Raw(logic,' = ', it0[1:], '(', ref, ', ', len(s_t), ', ', generate_chars_literal(s_t), ', ', s_2, ');')
@@ -13424,7 +13456,7 @@ def repl(ret):
                         codemethnm = Val3(t.subdescr, ('Method', v[1]))
                         isoldclass = Is3(t.subdescr, 'CalcConstOldClass')
                         isnewclass = Is3(t.subdescr, 'CalcConstNewClass')
-                        if t.is_old_class_inst() and isoldclass and ismeth:
+                        if t.is_old_class_inst() and isoldclass and ismeth and not isnewclass:
                             if classmeth:
                                 Debug('No direct call of class method', ret)
                             elif staticmeth:
@@ -13433,7 +13465,7 @@ def repl(ret):
                             else:                        
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
                                 return call_calc_const(codemethnm, tupl, ret)
-                        elif t.is_old_class_typ() and isoldclass and ismeth:
+                        elif t.is_old_class_typ() and isoldclass and ismeth and not isnewclass:
                             if classmeth:
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
                                 return call_calc_const(codemethnm, tupl, ret)
@@ -13444,7 +13476,7 @@ def repl(ret):
                                 tupl = ('!BUILD_TUPLE', v[2])
                                 return call_calc_const(codemethnm, tupl, ret)
         
-                        elif t.is_new_class_inst() and isnewclass and ismeth:
+                        elif t.is_new_class_inst() and isnewclass and ismeth and not isoldclass:
                             if classmeth:
                                 Debug('No direct call of class method', ret)
                             elif staticmeth:
@@ -13453,7 +13485,7 @@ def repl(ret):
                             else:                        
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
                                 return call_calc_const(codemethnm, tupl, ret)
-                        elif t.is_new_class_typ() and isnewclass and ismeth:
+                        elif t.is_new_class_typ() and isnewclass and ismeth and not isoldclass:
                             if classmeth:
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
                                 return call_calc_const(codemethnm, tupl, ret)
@@ -13475,7 +13507,7 @@ def repl(ret):
                         codemethnm = Val3(t.subdescr, ('Method', v[1]))
                         isoldclass = Is3(t.subdescr, 'CalcConstOldClass')
                         isnewclass = Is3(t.subdescr, 'CalcConstNewClass')                    
-                        if t.is_old_class_inst() and isoldclass and ismeth:
+                        if t.is_old_class_inst() and isoldclass and ismeth and not isnewclass:
                             if classmeth:
                                 Debug('No direct call of class method', ret)
                             elif staticmeth:
@@ -13486,7 +13518,7 @@ def repl(ret):
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v2)
                                 return call_calc_const(codemethnm, tupl, ret)
         
-                        elif t.is_old_class_typ() and isoldclass and ismeth:
+                        elif t.is_old_class_typ() and isoldclass and ismeth and not isnewclass:
                             if classmeth:
                                 Debug('No direct call of class method', ret)
                             elif staticmeth:
@@ -13497,7 +13529,7 @@ def repl(ret):
                                 tupl = ('CONST', v2)
                                 return call_calc_const(codemethnm, tupl, ret)
                         
-                        elif t.is_new_class_inst() and isnewclass and ismeth:
+                        elif t.is_new_class_inst() and isnewclass and ismeth and not isoldclass:
                             if classmeth:
                                 Debug('No direct call of class method', ret)
                             elif staticmeth:
@@ -13508,7 +13540,7 @@ def repl(ret):
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v2)
                                 return call_calc_const(codemethnm, tupl, ret)
         
-                        elif t.is_new_class_typ() and isnewclass and ismeth:
+                        elif t.is_new_class_typ() and isnewclass and ismeth and not isoldclass:
                             if classmeth:
                                 tupl = ('!BUILD_TUPLE', (v[0],) + v[2])
                                 return call_calc_const(codemethnm, tupl, ret) 
@@ -13867,7 +13899,7 @@ def repl(ret):
                                         if not Is3(v[0][0], 'HaveMetaClass'): 
                                             _3(v[0][0], 'CalcConstOldClass', v[1])
                                         _3(v[0][0], 'Derived', ('!CALC_CONST', der[1]))
-                                    elif Is3(der[1], 'CalcConstNewClass'):
+                                    if Is3(der[1], 'CalcConstNewClass'):
                                         _3(v[0][0], 'CalcConstNewClass', v[1])
                                         _3(v[0][0], 'Derived', ('!CALC_CONST', der[1]))
                                     else:
@@ -14204,12 +14236,12 @@ def TypeExpr(ret):
                 if t == Kl_None:
                     Fatal('')
 ##        if debug: print 'Module 0'
-
         if ret[2][1] in detected_attr_type:
             r = detected_attr_type[ret[2][1]]
             r.IsKlass()
+##            if ret[2][1] == 'prefix': print '/4.5', r, t, ret
             if r == Kl_BuiltinFunction and (not IsModule(t) or 'self' in repr(ret)):
-                if t in (Kl_Dict, Kl_Tuple, Kl_List, Kl_Set):
+                if t in (Kl_Dict, Kl_Tuple, Kl_List, Kl_Set) and ret[2][1][:2] != '__':
                     return r
                 if t is not None:
                     Debug('May by CFunction attribute of %s ?' % repr(t), ret)
@@ -14395,18 +14427,20 @@ def upgrade_op2(ret, nm = None):
     v  = []            
     if TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstOldClass:'),\
                 ('!BUILD_TUPLE', '?'), ('NULL',))) :
-            if not Is3(v[0][0], 'HaveMetaClass'): #have_metaclass(v[0][0]):
+            if not Is3(v[0][0], 'HaveMetaClass') and not Is3(v[0][0], 'CalcConstNewClass'): #have_metaclass(v[0][0]):
                 ret = ('!CLASS_CALC_CONST', v[0][0], ('!BUILD_TUPLE', v[1]))
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstOldClass:'),\
                 ('CONST', '?'), ('NULL',))):
-            if not Is3(v[0][0], 'HaveMetaClass'):  ## and not have_metaclass(v[0][0]):
+            if not Is3(v[0][0], 'HaveMetaClass') and not Is3(v[0][0], 'CalcConstNewClass'):  ## and not have_metaclass(v[0][0]):
                 ret = ('!CLASS_CALC_CONST', v[0][0], ('CONST', v[1]))
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstNewClass:'),\
                 ('!BUILD_TUPLE', '?'), ('NULL',))):
-            ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('!BUILD_TUPLE', v[1]))
+            if not Is3(v[0][0], 'CalcConstOldClass'):        
+                ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('!BUILD_TUPLE', v[1]))
     elif TCmp(ret, v, ('!PyObject_Call', ('CALC_CONST', ':CalcConstNewClass:'),\
                 ('CONST', '?'), ('NULL',))):
-            ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('CONST', v[1]))
+            if not Is3(v[0][0], 'CalcConstOldClass'):        
+                ret = ('!CLASS_CALC_CONST_NEW', v[0][0], ('CONST', v[1]))
     v = []
     if TCmp(ret, v, ('IMPORT_FROM_AS', '?', ('CONST', -1), ('CONST', '?'), '?')):
         sreti = []
@@ -14517,6 +14551,7 @@ def collect_module_type_attr(nm, acc = []):
     acc.append(this)
     for k in d.keys():
         v = getattr(this, k)
+##        if k == 'prefix': print '/0', k,v, nm
         if type(v) is types.ModuleType and v == this:
             continue
         t = type(v)
@@ -14532,8 +14567,12 @@ def collect_module_type_attr(nm, acc = []):
             else:    
                 t = Klass(t)    
         if k not in self_attr_type:
-            self_attr_type[k] = {}
-        self_attr_type[k][t] = True  
+            pass
+##            self_attr_type[k] = {}
+##        print '/// 1', k, t    
+        else:
+            self_attr_type[k][t] = True  
+##        self_attr_type[k][Kl_None] = True  
 
 def collect_set_attr(ret, nm):    
     global self_attr_type
@@ -14547,11 +14586,13 @@ def collect_set_attr(ret, nm):
         if TCmp(ret, v, ('STORE', (('STORE_NAME', '?'),), ('?',))):
             if v[0] not in self_attr_type:
                 self_attr_type[v[0]] = {}
+##            print '/// 2', v[0], TypeExpr(v[1])    
             self_attr_type[v[0]][TypeExpr(v[1])] = True  
 
     if TCmp(ret, v, ('STORE', (('PyObject_SetAttr', '?', ('CONST', '?')),), ('?',))):
         if v[1] not in self_attr_type:
             self_attr_type[v[1]] = {}
+##        print '/// 3', v[1], TypeExpr(v[2])    
         self_attr_type[v[1]][TypeExpr(v[2])] = True  
     elif TCmp(ret, v, ('STORE', (('SET_VARS', '?'),), ( '?',))):
         if len(v[1]) > 0 and (v[1][0] in tags_one_step_expr or v[1][0][0] == '!'):
@@ -14560,6 +14601,7 @@ def collect_set_attr(ret, nm):
                 if TCmp(set2, v2, ('PyObject_SetAttr', '?', ('CONST', '?'))):
                     if v2[1] not in self_attr_type:
                         self_attr_type[v2[1]] = {}
+##                    print '/// 4', v2[1], None    
                     self_attr_type[v2[1]][None] = True  
         else:
             Fatal('Unhandled SetAttr in SET_VARS', ret)
@@ -14578,6 +14620,7 @@ def collect_set_attr(ret, nm):
                 if TCmp(set2, v2, ('PyObject_SetAttr', '?', ('CONST', '?'))):
                     if v2[1] not in self_attr_type:
                         self_attr_type[v2[1]] = {}
+##                    print '/// 5', v2[1], None    
                     self_attr_type[v2[1]][None] = True  
         else:
             Fatal('Unhandled STORE', ret)
@@ -15046,9 +15089,8 @@ def generate_store(it, ref, o, expr):
     if it[0] == '?PyObject_SetAttr':
         ref1, ref2 = Expr(o, it[1:3])
         o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
-
         proc = Expr1(it[3], o)   
-        o.Stmt('if (', proc, '==', load_builtin(it[2][1]), ') {')
+        o.Stmt('if (', proc, '==', load_builtin(it[3][1]), ') {')
         o.Stmt('PyObject_SetAttr', ref1, ref2, ref)
         o.Cls(ref, ref1, ref2)
         o.Raw('} else {')
@@ -15435,38 +15477,38 @@ def generate_SetAttr(it, ref, o, expr):
     t = TypeExpr(it[1])
     _ddic = all_co[current_co]   
 ##    print 'SetAttr', t, _ddic.__dict__, current_co, it 
-    if not redefined_attribute and \
-       (it[1] == ('FAST', 'self') or \
-        (it[1][0] == 'PY_TYPE' and it[1][3] == ('FAST', 'self') and it[1][2] == _ddic.method_class))\
-            and it[2][0] == 'CONST' and \
-            Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
-            it[2][1][0:2] != '__': 
-        if current_co.co_name != '__init__':        
-            if _ddic.method_new_class: 
-                o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                _ddic.self_dict_getattr_used = True
-                o.Cls(ref)
-                return
-            elif _ddic.method_old_class: 
-                o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                _ddic.self_dict_getattr_used = True
-                o.Cls(ref)
-                return
-        else:
-            if _ddic.method_new_class: 
-                if _ddic.self_dict_setattr_used:
-                    o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
-                    _ddic.self_dict_getattr_used = True
-                    o.Cls(ref)
-                    return
-                else:
-                    _ddic.self_dict_setattr_used = True
-            elif _ddic.method_old_class: 
-                o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
-                _ddic.self_dict_getattr_used = True
-                o.Cls(ref)
-                return
-    if not redefined_attribute and it[2][0] == 'CONST' and it[2][1][0:2] != '__' and it[1][0] == 'FAST' and it[1][1] != 'self':
+    ## if not redefined_attribute and \
+       ## (it[1] == ('FAST', 'self') or \
+        ## (it[1][0] == 'PY_TYPE' and it[1][3] == ('FAST', 'self') and it[1][2] == _ddic.method_class))\
+            ## and it[2][0] == 'CONST' and \
+            ## Is3(_ddic.method_class, 'AttributeInstance', it[2][1]) and \
+            ## it[2][1][0:2] != '__': 
+        ## if current_co.co_name != '__init__':        
+            ## if _ddic.method_new_class: 
+                ## o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
+                ## _ddic.self_dict_getattr_used = True
+                ## o.Cls(ref)
+                ## return
+            ## elif _ddic.method_old_class: 
+                ## o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
+                ## _ddic.self_dict_getattr_used = True
+                ## o.Cls(ref)
+                ## return
+        ## else:
+            ## if _ddic.method_new_class: 
+                ## if _ddic.self_dict_setattr_used:
+                    ## o.Stmt('PyDict_SetItem', '*self_dict', it[2], ref)
+                    ## _ddic.self_dict_getattr_used = True
+                    ## o.Cls(ref)
+                    ## return
+                ## else:
+                    ## _ddic.self_dict_setattr_used = True
+            ## elif _ddic.method_old_class: 
+                ## o.Stmt('PyDict_SetItem', 'self_dict', it[2], ref)
+                ## _ddic.self_dict_getattr_used = True
+                ## o.Cls(ref)
+                ## return
+    if not redefined_attribute and it[2][0] == 'CONST' and it[2][1][0:2] != '__' and it[1][0] == 'FAST':
         isattrs = list(Iter3(None, 'AttributeInstance', it[2][1]))
         if len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
             current_co.co_varnames.index(it[1][1]) < current_co.co_argcount:
@@ -15532,20 +15574,20 @@ def generate_GetAttr(it,o, forcenewg, typed):
     t = TypeExpr(it[1])
     _ddic = all_co[current_co]
     if not redefined_attribute and it[2][0] == 'CONST' and it[2][1][0:2] != '__':
-        if (it[1] == ('FAST', 'self') or \
-            (it[1][0] == 'PY_TYPE' and it[1][3] == ('FAST', 'self') and it[1][2] == _ddic.method_class))\
-           and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]):
-            if _ddic.method_new_class: 
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
-                _ddic.self_dict_getattr_used = True
-                return ref
-            elif _ddic.method_old_class: 
-                ref = New(None, forcenewg)
-                o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
-                _ddic.self_dict_getattr_used = True
-                return ref
-        elif it[1][0] == 'FAST' and it[1][1] != 'self':
+        ## if (it[1] == ('FAST', 'self') or \
+            ## (it[1][0] == 'PY_TYPE' and it[1][3] == ('FAST', 'self') and it[1][2] == _ddic.method_class))\
+           ## and Is3(_ddic.method_class, 'AttributeInstance', it[2][1]):
+            ## if _ddic.method_new_class: 
+                ## ref = New(None, forcenewg)
+                ## o.Stmt(ref, '=', 'PyDict_GetItem', '*self_dict', it[2])
+                ## _ddic.self_dict_getattr_used = True
+                ## return ref
+            ## elif _ddic.method_old_class: 
+                ## ref = New(None, forcenewg)
+                ## o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
+                ## _ddic.self_dict_getattr_used = True
+                ## return ref
+        if it[1][0] == 'FAST':
             isattrs = list(Iter3(None, 'AttributeInstance', it[2][1]))
             if len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
                current_co.co_varnames.index(it[1][1]) < current_co.co_argcount:
@@ -17632,6 +17674,7 @@ def CVar(g):
 
 def load_builtin(c):
     global loaded_builtin
+    assert c in d_built
     if c in loaded_builtin:
         return 'loaded_builtin[' + str(loaded_builtin.index(c)) + ']'
     loaded_builtin.append(c)    
@@ -17643,12 +17686,12 @@ def generate_builtin(cfile):
     print_to(cfile, 'static PyObject * loaded_builtin[' + str(len(loaded_builtin)) + '];')
     print_to(cfile, 'static void load_builtin(void){')
     for i, c in enumerate(loaded_builtin):
-        print_to(cfile, 'loaded_builtin[' + str(i) + '] = PyObject_GetAttrString(b, "' + str(c) + '");' )
-        print_to(cfile, 'if (loaded_builtin[' + str(i) + '] == NULL) goto L0;')
-    print_to(cfile, 'if (0) {L0:')
-    print_to(cfile, 'printf(\"Handle raise at load builtin %d\\n\", __LINE__);')
-    print_to(cfile, 'if (PyErr_Occurred()) {printf (\"ERROR %s\\n\",PyObject_REPR(PyErr_Occurred()));}')
-    print_to(cfile, '}')
+        print_to(cfile, ConC('loaded_builtin[',i,'] = PyDict_GetItemString(bdict, "' + str(c) + '");' ))
+        print_to(cfile, ('if (loaded_builtin[' + str(i) + '] == NULL) {printf("no builtin %s\\n");}') %c)
+#    print_to(cfile, 'if (0) {L0:')
+#    print_to(cfile, 'printf(\"Handle raise at load builtin %d\\n\", __LINE__);')
+#    print_to(cfile, 'if (PyErr_Occurred()) {printf (\"ERROR %s\\n\",PyObject_REPR(PyErr_Occurred()));}')
+#    print_to(cfile, '}')
     print_to(cfile, '}')
 
 def generate_calculated_consts(cfile):
