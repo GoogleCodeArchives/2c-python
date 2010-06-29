@@ -3753,17 +3753,22 @@ def CheckExistListImport(nm, fromlist=None,level=-1):
 #            Fatal('can\'t import empty module')     
         try:
             if fromlist is None and level == -1 and nm != '':
+#                print '/1', nm
                 this = __import__(nm)
                 imported_modules[nm] = this
             elif nm == '' and level != -1 and len(fromlist) == 1:
+#                print '/2', nm, fromlist
                 this = __import__()
                 imported_modules[fromlist[0]] = this
             else:    
+#                print '/3', nm, fromlist
                 this = __import__(nm,{},{}, fromlist)
 ##            print this
                 imported_modules[nm] = this
         except:
             print sys.exc_info()
+            ## if nm == '__builtin__.__dict__':
+                ## assert False
             if level == -1:
                 Debug('Module %s import unsuccessful2' % nm, fromlist) 
             else:    
@@ -7276,8 +7281,6 @@ def generate_default_exception_handler(o):
     if Is3(func, 'UseLabel', labl):        
         o.Stmt('if (0) { ', labl, ':')
         if not is_direct_current:
-            if check_recursive_call:
-                o.Raw('Py_LeaveRecursiveCall();')
             o.Raw('PyTraceBack_Here(f);')
             ## if c_line_exceptions:
                 ## o += 'printf(\"Handle raise at C line ' + func +' %d from %d\\n\", __LINE__, f->f_lineno);'
@@ -7306,6 +7309,9 @@ def generate_default_exception_handler(o):
             o.Raw('CLEARTEMP(', str(i), ');')
         if calc_ref_total:
             o.Raw('if ((_Py_RefTotal - l_Py_RefTotal) > 0) {printf ("func ', current_co.co_name, ' delta ref = %d\\n", (int)(_Py_RefTotal - l_Py_RefTotal));}')
+        if not is_direct_current:
+            if check_recursive_call:
+                o.Raw('Py_LeaveRecursiveCall();')
         if not is_direct_current:
             o.Raw('tstate->frame = f->f_back;')
         if is_direct_current and IsRetVoid(all_co[current_co].cmds[0][1]):
@@ -7439,11 +7445,6 @@ PyImport_Exec2CCodeModuleEx(char *name, PyObject *co);
 
 """
 c_tail = """
-
-static PyObject *
-PyEval_Eval2CCodeEx(PyCodeObject *, PyObject *,
-	   PyObject **, int, PyObject **, int,
-	   PyObject **, int, PyObject *);
 
 #define NAME_CHARS \
 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"
@@ -7761,6 +7762,131 @@ function_call(PyObject *func, PyObject *arg, PyObject *kw)
 	return result;
 }
 
+#define ISINDEX(x) ((x) == NULL || \
+		    PyInt_Check(x) || PyLong_Check(x) || PyIndex_Check(x))
+
+/* Remove name from sys.modules, if it's there. */
+static void
+_RemoveModule(const char *name)
+{
+	PyObject *modules = PyImport_GetModuleDict();
+	if (PyDict_GetItemString(modules, name) == NULL)
+		return;
+	if (PyDict_DelItemString(modules, name) < 0)
+		Py_FatalError("import:  deleting existing key in"
+			      "sys.modules failed");
+}
+
+
+static PyObject *
+PyImport_Exec2CCodeModuleEx(char *name, PyObject *co)
+{
+	PyObject *modules = PyImport_GetModuleDict();
+	PyObject *m, *d, *v;
+
+	m = PyImport_AddModule(name);
+	if (m == NULL)
+		return NULL;
+	/* If the module is being reloaded, we get the old module back
+	   and re-use its dict to exec the new code. */
+	d = PyModule_GetDict(m);
+	if (PyDict_GetItemString(d, "__builtins__") == NULL) {
+		if (PyDict_SetItemString(d, "__builtins__",
+					 PyEval_GetBuiltins()) != 0)
+			goto error;
+	}
+ 	/* Remember the filename as the __file__ attribute */ 
+		v = ((PyCodeObject *)co)->co_filename;
+/*                v = PyString_FromString(src_name);*/
+		Py_INCREF(v);
+	if (PyDict_SetItemString(d, "__file__", v) != 0)
+		PyErr_Clear(); /* Not important enough to report */
+	Py_DECREF(v);
+        v = PyString_FromString(name);
+        Py_INCREF(v);
+	if (PyDict_SetItemString(d, "__name__", v) != 0)
+		PyErr_Clear(); /* Not important enough to report */
+	Py_DECREF(v);
+        glob = d;
+	v = PyEval_Eval2CCodeEx((PyCodeObject *)co,
+			  d,
+			  (PyObject **)NULL, 0,
+			  (PyObject **)NULL, 0,
+			  (PyObject **)NULL, 0,
+			  NULL);
+
+	if (v == NULL)
+		goto error;
+	Py_DECREF(v);
+
+	if ((m = PyDict_GetItemString(modules, name)) == NULL) {
+		PyErr_Format(PyExc_ImportError,
+			     "Loaded module %.200s not found in sys.modules",
+			     name);
+		return NULL;
+	}
+
+	Py_INCREF(m);
+
+	return m;
+
+  error:
+	_RemoveModule(name);
+	return NULL;
+}
+
+static void patch_code2c(void){
+    Py2CCode_Type = PyCode_Type;
+    Py2CCode_Type.ob_type = &PyType_Type;
+    Py2CCode_Type.tp_richcompare = code_richcompare;
+    Py2CCode_Type.tp_compare = (cmpfunc)code_compare;
+    Py2CCode_Type.tp_repr = (reprfunc)code_repr;
+    Py2CCode_Type.tp_hash = (hashfunc)code_hash;
+    Py2CCode_Type.tp_new = 0;
+    Py2CCode_Type.tp_name = "code2c";
+    Py2CCode_Type.tp_basicsize = sizeof(Py2CCodeObject);
+
+    Py2CFunction_Type = PyFunction_Type;
+    Py2CFunction_Type.ob_type = &PyType_Type;
+    Py2CFunction_Type.tp_new = 0;
+    Py2CFunction_Type.tp_name = "function2c";
+    Py2CFunction_Type.tp_call = function_call;
+}    
+"""
+
+def UseLabl():
+    _3(func, 'UseLabel', labl)
+    
+def Used(nm):
+    depends = {'_PyEval_PRINT_ITEM_1' : ('_PyEval_PRINT_ITEM_TO_2',),\
+               'from_ceval_call_exc_trace' : ('from_ceval_call_trace',)}
+    _3(nm, 'Used', True)
+    if nm in depends:
+        for nm2 in depends[nm]:
+            Used(nm2)
+
+_Libr = {}
+def IsLibr(nm):
+    return nm in _Libr
+
+def Libr(nm, dcl, defin):
+    _Libr[nm] = (dcl, defin)
+
+def LibrDcl(nm):
+    return _Libr[nm][0]
+
+def LibrDef(nm):
+    return _Libr[nm][1]
+
+if tuple(sys.version_info)[:2] == (2,6):
+    Libr('PyEval_Eval2CCodeEx', 
+"""
+static PyObject *
+PyEval_Eval2CCodeEx(PyCodeObject *, PyObject *,
+	   PyObject **, int , PyObject **, int ,
+	   PyObject **, int , PyObject *);
+""",
+"""
 /* Local variable macros */
 
 #undef GETLOCAL
@@ -8000,122 +8126,311 @@ fail: /* Jump here from prelude on failure */
 	--tstate->recursion_depth;
 	return retval;
 }
+""")
+elif tuple(sys.version_info)[:2] == (2,7):
+    Libr('PyEval_Eval2CCodeEx', 
+"""
+static PyObject *
+PyEval_Eval2CCodeEx(PyCodeObject *, PyObject *,
+	   PyObject **, int , PyObject **, int ,
+	   PyObject **, int , PyObject *);
+static PyObject * kwd_as_string(PyObject *);
+""",
+"""
+/* Local variable macros */
 
-#define ISINDEX(x) ((x) == NULL || \
-		    PyInt_Check(x) || PyLong_Check(x) || PyIndex_Check(x))
+#undef GETLOCAL
+#undef SETLOCAL
+#define GETLOCAL(i)	(fastlocals[i])
 
-/* Remove name from sys.modules, if it's there. */
-static void
-_RemoveModule(const char *name)
-{
-	PyObject *modules = PyImport_GetModuleDict();
-	if (PyDict_GetItemString(modules, name) == NULL)
-		return;
-	if (PyDict_DelItemString(modules, name) < 0)
-		Py_FatalError("import:  deleting existing key in"
-			      "sys.modules failed");
-}
-
+#define SETLOCAL(i, value)	do { PyObject *tmp = GETLOCAL(i); \
+				     GETLOCAL(i) = value; \
+                                     Py_XDECREF(tmp); } while (0)
 
 static PyObject *
-PyImport_Exec2CCodeModuleEx(char *name, PyObject *co)
+PyEval_Eval2CCodeEx(PyCodeObject *co, PyObject *locals,
+	   PyObject **args, int argcount, PyObject **kws, int kwcount,
+	   PyObject **defs, int defcount, PyObject *closure)
 {
-	PyObject *modules = PyImport_GetModuleDict();
-	PyObject *m, *d, *v;
+	register PyFrameObject *f;
+	register PyObject *retval = NULL;
+	register PyObject **fastlocals, **freevars;
+	PyThreadState *tstate = PyThreadState_GET();
+	PyObject *x, *u;
+        PyObject *(*c_func)(PyFrameObject *);
 
-	m = PyImport_AddModule(name);
-	if (m == NULL)
+        assert(tstate != NULL);
+        f = PyFrame_New(tstate, co, glob, locals);
+	if (f == NULL)
 		return NULL;
-	/* If the module is being reloaded, we get the old module back
-	   and re-use its dict to exec the new code. */
-	d = PyModule_GetDict(m);
-	if (PyDict_GetItemString(d, "__builtins__") == NULL) {
-		if (PyDict_SetItemString(d, "__builtins__",
-					 PyEval_GetBuiltins()) != 0)
-			goto error;
+
+	fastlocals = f->f_localsplus;
+	freevars = f->f_localsplus + co->co_nlocals;
+
+	if (co->co_argcount > 0 ||
+	    co->co_flags & (CO_VARARGS | CO_VARKEYWORDS)) {
+		int i;
+		int n = argcount;
+		PyObject *kwdict = NULL;
+		if (co->co_flags & CO_VARKEYWORDS) {
+			kwdict = PyDict_New();
+			if (kwdict == NULL)
+				goto fail;
+			i = co->co_argcount;
+			if (co->co_flags & CO_VARARGS)
+				i++;
+			SETLOCAL(i, kwdict);
+		}
+		if (argcount > co->co_argcount) {
+			if (!(co->co_flags & CO_VARARGS)) {
+				PyErr_Format(PyExc_TypeError,
+				    "%.200s() takes %s %d "
+				    "%sargument%s (%d given)",
+				    PyString_AsString(co->co_name),
+				    defcount ? "at most" : "exactly",
+				    co->co_argcount,
+				    kwcount ? "non-keyword " : "",
+				    co->co_argcount == 1 ? "" : "s",
+				    argcount);
+				goto fail;
+			}
+			n = co->co_argcount;
+		}
+		for (i = 0; i < n; i++) {
+			x = args[i];
+			Py_INCREF(x);
+			SETLOCAL(i, x);
+		}
+		if (co->co_flags & CO_VARARGS) {
+			u = PyTuple_New(argcount - n);
+			if (u == NULL)
+				goto fail;
+			SETLOCAL(co->co_argcount, u);
+			for (i = n; i < argcount; i++) {
+				x = args[i];
+				Py_INCREF(x);
+				PyTuple_SET_ITEM(u, i-n, x);
+			}
+		}
+		for (i = 0; i < kwcount; i++) {
+			PyObject **co_varnames;
+			PyObject *keyword = kws[2*i];
+			PyObject *value = kws[2*i + 1];
+			int j;
+                        if (keyword == NULL || !(PyString_Check(keyword)
+#ifdef Py_USING_UNICODE
+                                     || PyUnicode_Check(keyword)
+#endif
+                            )) {
+				PyErr_Format(PyExc_TypeError,
+				    "%.200s() keywords must be strings",
+				    PyString_AsString(co->co_name));
+				goto fail;
+			}
+			/* Speed hack: do raw pointer compares. As names are
+			   normally interned this should almost always hit. */
+                        co_varnames = ((PyTupleObject *)(co->co_varnames))->ob_item;
+                        for (j = 0; j < co->co_argcount; j++) {
+                            PyObject *nm = co_varnames[j];
+                            if (nm == keyword)
+                                goto kw_found;
+                        }
+                        /* Slow fallback, just in case */
+                        for (j = 0; j < co->co_argcount; j++) {
+                            PyObject *nm = co_varnames[j];
+                            int cmp = PyObject_RichCompareBool(
+                                keyword, nm, Py_EQ);
+                            if (cmp > 0)
+                                goto kw_found;
+                            else if (cmp < 0)
+                                goto fail;
+                        }
+                        if (kwdict == NULL) {
+                            PyObject *kwd_str = kwd_as_string(keyword);
+                            if (kwd_str) {
+                                PyErr_Format(PyExc_TypeError,
+                                            "%.200s() got an unexpected "
+                                            "keyword argument '%.400s'",
+                                            PyString_AsString(co->co_name),
+                                            PyString_AsString(kwd_str));
+                                Py_DECREF(kwd_str);
+                            }
+                            goto fail;
+                        }
+                        PyDict_SetItem(kwdict, keyword, value);
+                        continue;
+
+kw_found:
+			if (GETLOCAL(j) != NULL) {
+                            PyObject *kwd_str = kwd_as_string(keyword);
+                            if (kwd_str) {
+                                PyErr_Format(PyExc_TypeError,
+                                            "%.200s() got multiple "
+                                            "values for keyword "
+                                            "argument '%.400s'",
+                                            PyString_AsString(co->co_name),
+                                            PyString_AsString(kwd_str));
+                                Py_DECREF(kwd_str);
+                            }
+			}
+			Py_INCREF(value);
+			SETLOCAL(j, value);
+		}
+		if (argcount < co->co_argcount) {
+			int m = co->co_argcount - defcount;
+			for (i = argcount; i < m; i++) {
+				if (GETLOCAL(i) == NULL) {
+                                    int j, given = 0;
+                                    for (j = 0; j < co->co_argcount; j++)
+                                        if (GETLOCAL(j))
+                                            given++;
+                                    PyErr_Format(PyExc_TypeError,
+                                        "%.200s() takes %s %d "
+                                        "argument%s (%d given)",
+                                        PyString_AsString(co->co_name),
+                                        ((co->co_flags & CO_VARARGS) ||
+                                        defcount) ? "at least"
+                                                : "exactly",
+                                        m, m == 1 ? "" : "s", given);
+                                    goto fail;
+				}
+			}
+			if (n > m)
+				i = n - m;
+			else
+				i = 0;
+			for (; i < defcount; i++) {
+				if (GETLOCAL(m+i) == NULL) {
+					PyObject *def = defs[i];
+					Py_INCREF(def);
+					SETLOCAL(m+i, def);
+				}
+			}
+		}
 	}
- 	/* Remember the filename as the __file__ attribute */ 
-		v = ((PyCodeObject *)co)->co_filename;
-/*                v = PyString_FromString(src_name);*/
-		Py_INCREF(v);
-	if (PyDict_SetItemString(d, "__file__", v) != 0)
-		PyErr_Clear(); /* Not important enough to report */
-	Py_DECREF(v);
-        v = PyString_FromString(name);
-        Py_INCREF(v);
-	if (PyDict_SetItemString(d, "__name__", v) != 0)
-		PyErr_Clear(); /* Not important enough to report */
-	Py_DECREF(v);
-        glob = d;
-	v = PyEval_Eval2CCodeEx((PyCodeObject *)co,
-			  d,
-			  (PyObject **)NULL, 0,
-			  (PyObject **)NULL, 0,
-			  (PyObject **)NULL, 0,
-			  NULL);
+	else {
+		if (argcount > 0 || kwcount > 0) {
+			PyErr_Format(PyExc_TypeError,
+				     "%.200s() takes no arguments (%d given)",
+				     PyString_AsString(co->co_name),
+				     argcount + kwcount);
+			goto fail;
+		}
+	}
+	/* Allocate and initialize storage for cell vars, and copy free
+	   vars into frame.  This isn't too efficient right now. */
+	if (PyTuple_GET_SIZE(co->co_cellvars)) {
+		int i, j, nargs, found;
+		char *cellname, *argname;
+		PyObject *c;
 
-	if (v == NULL)
-		goto error;
-	Py_DECREF(v);
+		nargs = co->co_argcount;
+		if (co->co_flags & CO_VARARGS)
+			nargs++;
+		if (co->co_flags & CO_VARKEYWORDS)
+			nargs++;
 
-	if ((m = PyDict_GetItemString(modules, name)) == NULL) {
-		PyErr_Format(PyExc_ImportError,
-			     "Loaded module %.200s not found in sys.modules",
-			     name);
-		return NULL;
+		/* Initialize each cell var, taking into account
+		   cell vars that are initialized from arguments.
+
+		   Should arrange for the compiler to put cellvars
+		   that are arguments at the beginning of the cellvars
+		   list so that we can march over it more efficiently?
+		*/
+		for (i = 0; i < PyTuple_GET_SIZE(co->co_cellvars); ++i) {
+			cellname = PyString_AS_STRING(
+				PyTuple_GET_ITEM(co->co_cellvars, i));
+			found = 0;
+			for (j = 0; j < nargs; j++) {
+				argname = PyString_AS_STRING(
+					PyTuple_GET_ITEM(co->co_varnames, j));
+				if (strcmp(cellname, argname) == 0) {
+					c = PyCell_New(GETLOCAL(j));
+					if (c == NULL)
+						goto fail;
+					GETLOCAL(co->co_nlocals + i) = c;
+					found = 1;
+					break;
+				}
+			}
+			if (found == 0) {
+				c = PyCell_New(NULL);
+				if (c == NULL)
+					goto fail;
+				SETLOCAL(co->co_nlocals + i, c);
+			}
+		}
+	}
+	if (PyTuple_GET_SIZE(co->co_freevars)) {
+		int i;
+		for (i = 0; i < PyTuple_GET_SIZE(co->co_freevars); ++i) {
+			PyObject *o = PyTuple_GET_ITEM(closure, i);
+			Py_INCREF(o);
+			freevars[PyTuple_GET_SIZE(co->co_cellvars) + i] = o;
+		}
 	}
 
-	Py_INCREF(m);
+        assert(!(co->co_flags & CO_GENERATOR));
 
-	return m;
+        c_func = ((Py2CCodeObject *)co)->co_function;
+        retval = c_func(f);
 
-  error:
-	_RemoveModule(name);
-	return NULL;
+fail: /* Jump here from prelude on failure */
+
+	/* decref'ing the frame can cause __del__ methods to get invoked,
+	   which can call back into Python.  While we're done with the
+	   current Python frame (f), the associated C stack is still in use,
+	   so recursion_depth must be boosted for the duration.
+	*/
+	assert(tstate != NULL);
+	++tstate->recursion_depth;
+	Py_DECREF(f);
+	--tstate->recursion_depth;
+	return retval;
 }
 
-static void patch_code2c(void){
-    Py2CCode_Type = PyCode_Type;
-    Py2CCode_Type.ob_type = &PyType_Type;
-    Py2CCode_Type.tp_richcompare = code_richcompare;
-    Py2CCode_Type.tp_compare = (cmpfunc)code_compare;
-    Py2CCode_Type.tp_repr = (reprfunc)code_repr;
-    Py2CCode_Type.tp_hash = (hashfunc)code_hash;
-    Py2CCode_Type.tp_new = 0;
-    Py2CCode_Type.tp_name = "code2c";
-    Py2CCode_Type.tp_basicsize = sizeof(Py2CCodeObject);
+static PyObject *
+kwd_as_string(PyObject *kwd) {
+#ifdef Py_USING_UNICODE
+    if (PyString_Check(kwd)) {
+#else
+        assert(PyString_Check(kwd));
+#endif
+        Py_INCREF(kwd);
+        return kwd;
+#ifdef Py_USING_UNICODE
+    }
+    return _PyUnicode_AsDefaultEncodedString(kwd, "replace");
+#endif
+}
 
-    Py2CFunction_Type = PyFunction_Type;
-    Py2CFunction_Type.ob_type = &PyType_Type;
-    Py2CFunction_Type.tp_new = 0;
-    Py2CFunction_Type.tp_name = "function2c";
-    Py2CFunction_Type.tp_call = function_call;
-}    
+""")
+
+Libr('from_ceval_2_7_special_lookup',
 """
-
-def UseLabl():
-    _3(func, 'UseLabel', labl)
-    
-def Used(nm):
-    depends = {'_PyEval_PRINT_ITEM_1' : ('_PyEval_PRINT_ITEM_TO_2',),\
-               'from_ceval_call_exc_trace' : ('from_ceval_call_trace',)}
-    _3(nm, 'Used', True)
-    if nm in depends:
-        for nm2 in depends[nm]:
-            Used(nm2)
-
-_Libr = {}
-def IsLibr(nm):
-    return nm in _Libr
-
-def Libr(nm, dcl, defin):
-    _Libr[nm] = (dcl, defin)
-
-def LibrDcl(nm):
-    return _Libr[nm][0]
-
-def LibrDef(nm):
-    return _Libr[nm][1]
+static PyObject * from_ceval_2_7_enter = NULL;
+static PyObject * from_ceval_2_7_exit = NULL;
+static PyObject * from_ceval_2_7_special_lookup(PyObject *, char *, PyObject **);
+""",
+"""
+static PyObject *
+from_ceval_2_7_special_lookup(PyObject *o, char *meth, PyObject **cache)
+{
+    PyObject *res;
+    if (PyInstance_Check(o)) {
+        if (!*cache)
+            return PyObject_GetAttrString(o, meth);
+        else
+            return PyObject_GetAttr(o, *cache);
+    }
+    res = _PyObject_LookupSpecial(o, meth, cache);
+    if (res == NULL && !PyErr_Occurred()) {
+        PyErr_SetObject(PyExc_AttributeError, *cache);
+        return NULL;
+    }
+    return res;
+}
+""")
 
 Libr('Direct_AddTraceback',
 """
@@ -9823,7 +10138,7 @@ _PyEval_ExecStatement(PyFrameObject * f, PyObject *prog, PyObject *globals,
 def write_as_c(cfile, nmmodule):
     global pregenerated
     print_to(cfile,c_head)
-
+    Used('PyEval_Eval2CCodeEx')
     for cmds, o, co, nm, nm_for_c in pregenerated:
         print_to(cfile, 'static PyObject * codefunc_' + nm_for_c +'(PyFrameObject *);')
         if nm != nm_for_c and (Is3(nm, 'ArgCallCalculatedDef') or \
@@ -10258,9 +10573,6 @@ def generate_statement(head,it, o):
                 if istempref(t):
                     o.Raw('Py_CLEAR(', t, ');')
         try_jump = try_jump_context[:]
-        if not is_direct_current:
-            if check_recursive_call:
-                o.Raw('Py_LeaveRecursiveCall();')
         if len(it[1]) == 1 and it[1][0] == 'f->f_locals':
             assert not is_direct_current
             ref = New()
@@ -10269,6 +10581,9 @@ def generate_statement(head,it, o):
             PopClearAll(o)
             if checkmaxref != 0:
                 o.Raw('if ((', ref, ')->ob_refcnt > ', checkmaxref, ') printf("line %5d, line %6d \\n", __LINE__,(', ref, ')->ob_refcnt);')
+            if not is_direct_current:
+                if check_recursive_call:
+                    o.Raw('Py_LeaveRecursiveCall();')
             if not is_direct_current:
                 o.Raw('tstate->frame = f->f_back;')
             o.Raw('return ', ref, ';')
@@ -10317,6 +10632,9 @@ def generate_statement(head,it, o):
             o.Raw('if (tstate->frame->f_exc_type != NULL) {')
             o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
             o.Raw('}')
+            if not is_direct_current:
+                if check_recursive_call:
+                    o.Raw('Py_LeaveRecursiveCall();')
             o.Raw('tstate->frame = f->f_back;')
         if isvoid:
             o.Raw('return 0;')
@@ -10862,124 +11180,178 @@ def generate_with(it,o):
     
 ##    raised = None
     try_j = try_jump_context[:]
-    if len(it) == 3 and it[2] == (')ENDWITH',) and\
-       len(it[0]) == 3 and it[0][0] == '(WITH' :
-         if it[1] == [('PASS',)]:  
-#            r0 = Expr1(it[0][1],o)
-#            o.ClsFict(r0)            
-            acc = [it[0][1]]
-            refs = Expr(o, acc) #[Expr1(x, o) for x in acc]
-            PushAcc(acc, refs)            
-            r0 = refs[0]
-            r1 = Expr1(('!PyObject_GetAttr', r0, ('CONST', '__enter__')),o)
-            r2 = Expr1(('!PyObject_GetAttr', r0, ('CONST', '__exit__')),o)
-            ref1 = Expr1(('!PyObject_Call', r1, ('CONST', ()), 'NULL'),o)
-            o.Cls(r1)
+    assert len(it) == 3 and it[2] == (')ENDWITH',) and len(it[0]) == 3 and it[0][0] == '(WITH'
+    r0 = Expr1(it[0][1], o)
+    r1 = New()
+    r2 = New()
+    ref1 = New()
+    if tuple(sys.version_info)[:2] < (2,7):
+        o.Raw('if ((', r1, ' = PyObject_GetAttr(', r0, ', ', ('CONST', '__enter__'), ')) == 0) goto ', labl, ';')
+        o.Raw('if ((', r2, ' = PyObject_GetAttr(', r0, ', ', ('CONST', '__exit__'), ')) == 0) goto ', labl, ';')
+    else:    
+        o.Raw('if ((', r1, ' = from_ceval_2_7_special_lookup(', r0, ', "__enter__", &from_ceval_2_7_enter)) == 0) goto ', labl, ';')
+        o.Raw('if ((', r2, ' = from_ceval_2_7_special_lookup(', r0, ', "__exit__", &from_ceval_2_7_exit)) == 0) goto ', labl, ';')
+        Used('from_ceval_2_7_special_lookup')
+    o.Raw('if ((', ref1, ' = PyObject_Call(', r1, ', ', ('CONST', ()), ', NULL)) == 0) goto ', labl, ';')
+    o.Cls(r1)
 
-            if it[0][2] == (): 
-                pass
-            elif len(it[0][2]) == 1 and it[0][2][0][0] in set_any:
-                generate_store(it[0][2][0], ref1, o, 'Store clause at WITH statement')
-            elif it[0][2][0] == 'SET_VARS':
-                generate_store(it[0][2], ref1, o, 'Multy store clause at WITH statement')
-            elif len(it[0][2]) == 2 and it[0][2][0] in set_any:
-                generate_store(it[0][2], ref1, o, 'Store clause at WITH statement')
-            else:
-                Fatal('WITH error', len(it[0][2]), it[0][2], it)
-                raise    
+    if it[0][2] == (): 
+        pass
+    elif len(it[0][2]) == 1 and it[0][2][0][0] in set_any:
+        generate_store(it[0][2][0], ref1, o, 'Store clause at WITH statement')
+    elif it[0][2][0] == 'SET_VARS':
+        generate_store(it[0][2], ref1, o, 'Multy store clause at WITH statement')
+    elif len(it[0][2]) == 2 and it[0][2][0] in set_any:
+        generate_store(it[0][2], ref1, o, 'Store clause at WITH statement')
+    elif len(it[0][2]) == 3 and it[0][2][0] in ('PyObject_SetAttr', 'PyObject_SetItem'):
+        generate_store(it[0][2], ref1, o, 'Store clause at WITH statement')
+    else:
+        Fatal('WITH error', len(it[0][2]), it[0][2], it)
+        raise     
+    o.Cls(ref1) 
+        
+    if it[1] == [('PASS',)]:     
+        ref2 = New()
+        o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', ('CONST', (None,None,None)), ', NULL)) == 0) goto ', labl, ';')
+        UseLabl()
+        o.Cls(r2, ref2, r0)
+        try_jump_context[:] = try_j
+        return
+    try_jump_context.append(True)
+    o.Stmt('{')
+    label_exc = New('label')  
+    global traced_tempgen
+    a,b,c = New(), New(), New()
+    o.Stmt('PyErr_Fetch', ('&', a), ('&', b), ('&', c)) 
+    set_toerr_new(o, label_exc)
+    o.Stmt('PyFrame_BlockSetup', 'f', 'SETUP_EXCEPT',-1, -1)
+    traced_tempgen.append({})
+    generate_list(it[1],o)
+    traced_temp = traced_tempgen[-1].keys()
+    del traced_tempgen[-1]
+    if len(traced_tempgen) > 0:
+        for k in traced_temp:
+            traced_tempgen[-1][k] = True
+    o.Stmt('PyFrame_BlockPop', 'f')
+    set_toerr_back(o)
+    o.Stmt('PyErr_Restore', a,b,c)   
+    ref2 = New()
+    o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', ('CONST', (None,None,None)), ', NULL)) == 0) goto ', labl, ';')
+    bool_ret = None
+    o.Cls(ref2)
+    UseLabl()
+    raised = None
+##        ref2 = Expr1(('!PyObject_Call', r2, ('CONST', (None,None,None)), 'NULL'),o)
+    if Is3(func, 'UseLabel', label_exc):   
+        raised = New('int')
+        o.Raw(raised, ' = 0;')
+        o.Stmt('if (0) { ', label_exc, ':')
+        o.Stmt(raised, '=', 1)
+        o.Raw('PyTraceBack_Here(f);') 
+        generate_clear_temp_on_exception(o, traced_temp)
+        ae,be,ce = get_exc_info(o)
+        tupl = New()
+        o.Raw(tupl, ' = PyTuple_Pack(3, ', ae, ', ', be, ', ', ce, ');')
+        ref2 = New()
+        o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', tupl, ', NULL)) == 0) goto ', labl, ';')
+        bool_ret = New('int')
+        o.Raw('if (', ref2, ' == Py_None) ', bool_ret, ' = 0;')
+        o.Raw('else {')
+        o.Raw('if ((', bool_ret, ' = PyObject_IsTrue(', ref2, ')) == -1) goto ', labl, ';')
+        o.Raw('}')
+        o.Cls(ref2)
+        UseLabl()
+        o.Stmt('PyFrame_BlockPop', 'f')
+        o.Raw('if (', bool_ret, ') {')
+        o.Stmt('PyErr_Restore', a,b,c)
+        o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
+        o.Raw('} else {')
+        o.Stmt('PyErr_Restore', ae,be,ce)   
+        o.Raw('}')
+        o.Cls(ae, be, ce)
+##            o.Stmt('PyErr_Restore', a,b,c)
+        o.Raw('}')
+    o.Raw('}')
+    o.Cls(ref2, a, b, c)
+#        o.Cls(*refs) 
+    if raised is not None:
+        o.Raw('if (', raised, ' && !', bool_ret,') { goto ',labl, '; }')
+    UseLabl()
+    o.Cls(raised, bool_ret)
+    set_toerr_final(o)
+    try_jump_context[:] = try_j
+    return
 
-            ref2 = Expr1(('!PyObject_Call', r2, ('CONST', (None,None,None)), 'NULL'),o)
-            o.Cls(r2, ref2)
-            PopAcc(o)     
-            o.Cls(*refs)       
-#            if istempref(r0):
-#                o.Stmt('Py_CLEAR', r0)
-            try_jump_context[:] = try_j
-            return
-         else:
-            acc = [it[0][1]]
-            refs = Expr(o, acc) #[Expr1(x, o) for x in acc]
-            PushAcc(acc, refs)            
-            r0 = refs[0]
-            expr_exit = ('!PyObject_GetAttr', r0, ('CONST', '__exit__'))
-            r1 = Expr1(('!PyObject_GetAttr', r0, ('CONST', '__enter__')),o)
-            r2 = Expr1(expr_exit,o)
-            PushAcc([expr_exit], [r2])            
-            ref1 = Expr1(('!PyObject_Call', r1, ('CONST', ()), 'NULL'),o)
-            o.Cls(r1)
 
-            if it[0][2] == (): 
-                pass
-            elif len(it[0][2]) == 1 and it[0][2][0][0] in set_any:
-                generate_store(it[0][2][0], r0, o, 'Store clause at WITH statement')
-            elif it[0][2][0] == 'SET_VARS':
-                generate_store(it[0][2], ref1, o, 'Multy store clause at WITH statement')
-            elif len(it[0][2]) == 2 and it[0][2][0] in set_any:
-                generate_store(it[0][2], ref1, o, 'Store clause at WITH statement')
-            elif len(it[0][2]) == 3 and it[0][2][0] in ('PyObject_SetAttr', 'PyObject_SetItem'):
-                generate_store(it[0][2], ref1, o, 'Store clause at WITH statement')
-            else:
-                Fatal('WITH error', len(it[0][2]), it[0][2], it)
-                raise    
-##            o.Cls(ref1)
-            
-            try_jump_context.append(True)
-            o.Stmt('{')
-            label_exc = New('label') 
-##            a,b,c, traced_temp = get_exc_info2(o, it, label_exc)
-            
-            global traced_tempgen
-            a,b,c = New(), New(), New()
-            o.Stmt('PyErr_Fetch', ('&', a), ('&', b), ('&', c))
-            ## o.XINCREF(a)
-            ## o.XINCREF(b)
-            ## o.XINCREF(c)
-            set_toerr_new(o, label_exc)
-            o.Stmt('PyFrame_BlockSetup', 'f', 'SETUP_EXCEPT',-1, -1)
-            traced_tempgen.append({})
-            generate_list(it[1],o)
-            traced_temp = traced_tempgen[-1].keys()
-            del traced_tempgen[-1]
-            if len(traced_tempgen) > 0:
-                for k in traced_temp:
-                    traced_tempgen[-1][k] = True
-            o.Stmt('PyFrame_BlockPop', 'f')
-            set_toerr_back(o)
-            o.Stmt('PyErr_Restore', a,b,c)   
-##            return a,b,c, traced 
-            
+def generate_try_finally_new(it,o2):
+    global try_jump_context, dropped_temp
+    o = Out()
+    i = 2
+    while i < len(it):
+        if it[i][0] == ')ENDTRY_FINALLY':
+            del it[i]    
+        elif it[i][0] == ')(FINALLY':
+            finally_cod = it[i+1]
+            del it[i]
+            del it[i]
+            continue
+        else:
+            Fatal('', it, i, it[i])
+    try_jump_context.append(finally_cod)
+    label_exc = New('label') 
 
-            ref2 = Expr1(('!PyObject_Call', r2, ('CONST', (None,None,None)), 'NULL'),o)
-            if Is3(func, 'UseLabel', label_exc):        
-##                raised = New('int')
-##                o.Stmt(raised, '=', 0)
-                o.Stmt('if (0) { ', label_exc, ':')
-                o.Raw('PyTraceBack_Here(f);')
-                
-##                o.Stmt(raised, '=', 1)
+    global traced_tempgen
+    a = New()
+    b = New()
+    c = New()
+    o.Stmt('PyErr_Fetch', ('&', a), ('&', b), ('&', c))
+    dropped_temp.append(('TRY', (a,b,c)))
 
+    set_toerr_new(o, label_exc)
+    o.Stmt('PyFrame_BlockSetup', 'f', 'SETUP_FINALLY',-1, -1)
 
-##                o.Stmt('if (0) { ', label_exc, ':')
-                generate_clear_temp_on_exception(o, traced_temp)
-                ae,be,ce = get_exc_info(o)
-                ref2 = Expr1(('!PyObject_Call', r2, ('!BUILD_TUPLE', (ae,be,ce)), 'NULL'),o)
-                o.Cls(ae, be, ce)
-                o.Stmt('PyErr_Restore', a,b,c)
-                o.Raw('}')
-            o.Raw('}')
-            o.Cls(ref2, a, b, c)
-            PopAcc(o)     
-            PopAcc(o)     
-            o.Cls(*refs)
-            ## if raised is not None:        
-                ## o.Cls(raised)
-                ## o.Raw('if (', raised, ') { goto ',labl, '; }')
-                ## UseLabl()
-            set_toerr_final(o)
-            try_jump_context[:] = try_j
-            return
+    traced_tempgen.append({})
+    generate_list(it[1],o)
+    traced_temp = traced_tempgen[-1].keys()
+    del traced_tempgen[-1]
+    if len(traced_tempgen) > 0:
+        for k in traced_temp:
+            traced_tempgen[-1][k] = True
+    o.Stmt('PyFrame_BlockPop', 'f')
+    set_toerr_back(o)
+    o.Stmt('PyErr_Restore', a,b,c)   
 
-    Fatal('Statement WITH (not) realised ???', it, filename, func)
+    a1,b1,c1 = None,None,None
+    i = 2
+    first_except = True
+    if not Is3(func, 'UseLabel', label_exc):        
+        del try_jump_context[-1]     
+        generate_list(finally_cod,o)
+        o.Cls(a, b, c)
+        set_toerr_final(o)
+        o2.extend(o)
+        del dropped_temp[-1]
+        return None
+    global tempgen
+    raised = New('int')
+    o.Raw(raised, ' = 0;')
+    o.Stmt('if (0) { ', label_exc, ':')
+    o.Raw('PyTraceBack_Here(f);')
+    o.Stmt(raised, '=', 1)
+    generate_clear_temp_on_exception(o, traced_temp)
+    o.Raw('}')
+    if i < len(it):
+        Fatal('', it, i, it[i])
+    del try_jump_context[-1]        
+    o.Comment((')(FINALLY',))
+    generate_list(finally_cod,o)
+    global tempgen
+    o.Cls(a, b, c, a1, b1, c1, raised)
+    o.Raw('if (', raised, ') { goto ',labl, '; }')
+    UseLabl()
+    del dropped_temp[-1]
+    set_toerr_final(o)
+    o2.extend(o)
 
 
 def attempt_iteration_try(it, o):
@@ -11160,6 +11532,7 @@ def generate_try(it,o2):
         if it[i][0] == ')(EXCEPT' and len(it[i]) == 1:
             o.Comment(it[i])
 ##            if else_cod is not None:
+            o.Raw('if (', to_else, ') {')
             ae,be,ce = get_exc_info(o)
             o.Cls(ae, be, ce)
             o.Stmt('PyFrame_BlockPop', 'f')
@@ -11167,6 +11540,7 @@ def generate_try(it,o2):
             o.Stmt(to_else, '=', 0)
             generate_list(it[i+1],o)
             o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
+            o.Raw('}')
             handled = True
             i += 2
             continue
@@ -11176,6 +11550,7 @@ def generate_try(it,o2):
                     iti = it[i]
                     o.Comment(iti)
                     assert not is_direct_current
+                    o.Raw('if (', to_else, ') {')
                     if len (iti[1]) == 2 and type(iti[1][1]) is int:
                         o.Stmt('f->f_lineno', '=', iti[1][1])
                         o.Raw('f->f_lasti = ', str(Line2Addr[iti[1][1]]), ';')
@@ -11194,6 +11569,7 @@ def generate_try(it,o2):
                     o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
                     o.Raw('}')
                     o.Cls(ref1)
+                    o.Raw('}')
                     i += 2
                     continue
             if ((len (it[i][1]) == 2 and type(it[i][1][1]) is int) or len (it[i][1]) == 1) and \
@@ -11201,6 +11577,7 @@ def generate_try(it,o2):
                     iti = it[i]
                     o.Comment(iti)
                     assert not is_direct_current
+                    o.Raw('if (', to_else, ') {')
                     if len (iti[1]) == 2 and type(iti[1][1]) is int:
                         o.Stmt('f->f_lineno', '=', iti[1][1])
                         o.Raw('f->f_lasti = ', str(Line2Addr[iti[1][1]]), ';')
@@ -11226,6 +11603,7 @@ def generate_try(it,o2):
                     o.Stmt('_PyEval_reset_exc_info', 'f->f_tstate')       
                     o.Raw('}')
                     o.Cls(ref1)
+                    o.Raw('}')
                     i += 2
                     continue
             Fatal('TRY error', it[i], it[i][0], it[i][1], it[i][1][0], it[i][2], it[i][2][0])
@@ -11363,7 +11741,7 @@ def generate_try_finally(it,o2):
     del dropped_temp[-1]
     set_toerr_final(o)
     o2.extend(o)
-   
+  
 def generate_clear_temp_on_exception(o, traced_temp):
     for k, n in traced_temp:
         o.CLEAR('temp_' + str(n))
@@ -13928,7 +14306,9 @@ def collect_modules_attr(ret):
                             '!PyDict_GetItem(glob,'), \
                         ':ImportedM:'), ('CONST', '?'))) and \
                         ModuleHaveAttr(v[0][0], v[1]):
-        if v[0][2] == 'sys' and v[1] in sys_const:
+        if v[0][2][:6] == '__buil' and v[0][2][6:] == 'tin__':
+           pass
+        elif v[0][2] == 'sys' and v[1] in sys_const:
             return ('CONST', getattr(sys,v[1]))
         else:
             if v[0][2] != 'sys' and v[0][2] not in variable_module_attr:
@@ -13960,7 +14340,10 @@ def IfConstImp(imp,nm):
     return None
 
 def ModuleHaveAttr(imp,nm):
-    if imp == 'sys' or imp in variable_module_attr:
+##    print '/4', imp, nm
+    if imp[:6] == '__buil' and imp[6:] == 'tin__':
+        return nm in d_built
+    if imp == 'sys' or imp in variable_module_attr or (imp[:6] == '__buil' and imp[6:] == 'tin__'):
         return False
     if Is3(imp, 'ImportedM'):
         v = Val3(imp, 'ImportedM')
@@ -15385,7 +15768,6 @@ def mass_store(o,ref,its,expr):
         o.Raw('Py_CLEAR(',  ref,');')    
     PopAcc(o)
     o.Cls(ref, src_len)
-#    PopAcc(o)
     return       
     
 g_acc2 = []
@@ -15510,7 +15892,8 @@ def generate_SetAttr(it, ref, o, expr):
                 ## return
     if not redefined_attribute and it[2][0] == 'CONST' and it[2][1][0:2] != '__' and it[1][0] == 'FAST':
         isattrs = list(Iter3(None, 'AttributeInstance', it[2][1]))
-        if len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
+        ismeth = len (list(Iter3(None, ('Method', it[2][1]), None))) > 0
+        if not ismeth and len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
             current_co.co_varnames.index(it[1][1]) < current_co.co_argcount:
             s1 = ('STORE_FAST', it[1][1])
             s2 = ('DELETE_FAST', it[1][1])
@@ -15526,7 +15909,8 @@ def generate_SetAttr(it, ref, o, expr):
                 o.Cls(ref)
                 return
     if t is not None and t.descr == T_OLD_CL_INST:
-        if it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
+        ismeth = len (list(Iter3(None, ('Method', it[2][1]), None))) > 0
+        if  not ismeth and it[2][0] == 'CONST' and Is3(t.subdescr, 'AttributeInstance', it[2][1]) and \
               it[2][1][0:2] != '__':
             ref1 = Expr1(it[1], o)
             o.Stmt('PyDict_SetItem', '((PyInstanceObject *)' + CVar(ref1) + ')->in_dict', it[2], ref)
@@ -15587,9 +15971,10 @@ def generate_GetAttr(it,o, forcenewg, typed):
                 ## o.Stmt(ref, '=', 'PyDict_GetItem', 'self_dict', it[2])
                 ## _ddic.self_dict_getattr_used = True
                 ## return ref
+        ismeth = len (list(Iter3(None, ('Method', it[2][1]), None))) > 0
         if it[1][0] == 'FAST':
             isattrs = list(Iter3(None, 'AttributeInstance', it[2][1]))
-            if len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
+            if not ismeth and len(isattrs) > 0 and it[1][1] in current_co.co_varnames and \
                current_co.co_varnames.index(it[1][1]) < current_co.co_argcount:
                 s1 = ('STORE_FAST', it[1][1])
                 s2 = ('DELETE_FAST', it[1][1])
@@ -15608,7 +15993,7 @@ def generate_GetAttr(it,o, forcenewg, typed):
                     o.Stmt(ref, '=', 'PyObject_GetAttr', it[1], it[2])
                     o.Raw('}')
                     return ref
-        elif t is not None and Is3(t.subdescr, 'AttributeInstance', it[2][1]):
+        elif not ismeth and t is not None and Is3(t.subdescr, 'AttributeInstance', it[2][1]):
             if t.descr == T_OLD_CL_INST:
                 if it[1][0] == 'CALC_CONST':
                     if Is3(it[1][1], 'ModuleAttr', '.__dict__'):
@@ -17132,7 +17517,7 @@ def GenNumberExpr(it, o, forcenewg, typed, skip_float):
                 s1 = 'PyFloat_AsDouble('+ CVar(ref1)+')'    
             if ref1[0] == 'CONST':
                 s1 = '((double)' + str(ref1[1]) +')'
-            o.Raw(new, ' = PyFloat_FromDouble(0 - ', s1, ');')
+            o.Raw(new, ' = PyFloat_FromDouble(-(', s1, '));')
         if onlyint and t != Kl_Short:
             o.Stmt('if (0) {', nlabel, ':')
             o.Stmt(new, '=', head[1:], ref1)
