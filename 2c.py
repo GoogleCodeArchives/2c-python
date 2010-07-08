@@ -198,6 +198,7 @@ d_built = {'ArithmeticError': ArithmeticError,
 'zip': zip}
 if tuple(sys.version_info)[:2] == (2,7):
     d_built['memoryview'] = memoryview
+#    d_built['print'] = print
 d_built_inv = dict([(y,x) for x,y in d_built.iteritems()])
 
 import math
@@ -1330,6 +1331,8 @@ def can_be_direct_call(it):
         return 'statement IMPORT_NAME'
     if tag_in_expr('EXEC_STMT', it):
         return 'exec stmt'
+    if tag_in_expr('EXEC_STMT_3', it):
+        return 'exec stmt'
     if tag_in_expr('IMPORT_FROM_AS', it):
         return 'import from as'
     ## if '_getframe' in s:
@@ -2146,6 +2149,8 @@ def filter_founded_calc_const(p, k, do_del):
     else:
         Fatal('can\'t handle CALC_CONST', p, k)
  
+list_ext = []
+ 
 def compile_c(base, cname):
     optio = '-O0'
     if opt_flag is not None:
@@ -2157,7 +2162,17 @@ def compile_c(base, cname):
         version = "1.0",
         description = "Compiled to C Python code " + base,
         ext_modules = [example_mod],
-        script_name = 'install',
+        script_name = 'install' ,
+        script_args = ['build_ext']
+        )
+    list_ext.append(example_mod)    
+
+def link_c():
+    a = distutils.core.setup(name = 'install_all',
+        version = "1.0",
+        description = "Compiled to C Python code",
+        ext_modules = list_ext,
+        script_name = 'install' ,
         script_args = ['install']
         )
 
@@ -5835,11 +5850,18 @@ def concatenate_except(cond, bl1, exc_tail):
     return '~'
 
 def New_3Cmp(tupl):
+  
+    t = ('!NCMP', tuple(tupl[1:]))
+    return ('!BOOLEAN', t)                 
+    
     t = And_j(process_compare_op(tupl[2], tupl[1], tupl[3])[0],
                       process_compare_op(tupl[4], tupl[3], tupl[5])[0])
     return ('!BOOLEAN', t)                 
 
 def New_NCmp(tupl):
+    print tupl
+    t = ('!NCMP', tupl)
+    return ('!BOOLEAN', t)                 
     if len(tupl) == 5:
         t = And_j(process_compare_op(tupl[1], tupl[0], tupl[2])[0],
                         process_compare_op(tupl[3], tupl[2], tupl[4])[0])
@@ -6690,6 +6712,13 @@ def main():
                     print 'Error in', filename  
                     compilable = False
             if compilable:   
+                if co.co_flags & 0x10000:
+                    import __builtin__ as b
+                    d_built['print'] = b.__dict__["print"]
+                    b = None
+                else:
+                    if 'print' in d_built:
+                        del d_built['print']    
                 SetPass('DisAssemble')
 ##                try:
                 walk(co)
@@ -6719,7 +6748,7 @@ def main():
 #            gc.collect()
     ## if collect_stat:
         ## printcmpstat()  
-        
+    link_c()    
     co = compile('print 1\n', 'test.py', "exec")
     clear_after_all_files()
     co = None
@@ -10448,7 +10477,7 @@ def generate_list(lis, o = None):
     while i < len(lis):
         it = lis[i]
         head = it[0]
-        assert type(head) is int or (head[0] != ')' and head[0:2] != ')(')
+        assert head[0] != ')' and head[0:2] != ')(' 
         if IsBeg(head):
             i1 = get_closed_pair(lis[:],i)
             o.Comment(it)
@@ -10842,11 +10871,15 @@ def generate_statement(head,it, o):
     if head == 'EXEC_STMT_3':
         r1, r2, r3 = Expr(o, it[1:])
         plain = False
+        
         if r2 == ('CONST', None) == r3:
-            r2 = 'glob'
-            o.Raw('PyFrame_FastToLocals(f);')
-            r3 = 'f->f_locals'
-            plain = True
+            if it[1][0] == '!BUILD_TUPLE' and len(it[1][1]) in (2,3):
+                pass
+            else:
+                r2 = 'glob'
+                o.Raw('PyFrame_FastToLocals(f);')
+                r3 = 'f->f_locals'
+                plain = True
         if r2 != ('CONST', None) and ('CONST', None) == r3:
             r3 = r2
         ## o.INCREF(r1)    
@@ -11177,11 +11210,13 @@ def generate_compaund_statement(head,it,o):
 
 def generate_with(it,o):
     global try_jump_context, dropped_temp
+    global traced_tempgen
     
 ##    raised = None
     try_j = try_jump_context[:]
     assert len(it) == 3 and it[2] == (')ENDWITH',) and len(it[0]) == 3 and it[0][0] == '(WITH'
     r0 = Expr1(it[0][1], o)
+    o.INCREF(r0)
     r1 = New()
     r2 = New()
     ref1 = New()
@@ -11210,13 +11245,13 @@ def generate_with(it,o):
         raise     
     o.Cls(ref1) 
         
-    if it[1] == [('PASS',)]:     
-        ref2 = New()
-        o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', ('CONST', (None,None,None)), ', NULL)) == 0) goto ', labl, ';')
-        UseLabl()
-        o.Cls(r2, ref2, r0)
-        try_jump_context[:] = try_j
-        return
+    ## if it[1] == [('PASS',)]:     
+        ## ref2 = New()
+        ## o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', ('CONST', (None,None,None)), ', NULL)) == 0) goto ', labl, ';')
+        ## UseLabl()
+        ## o.Cls(r2, ref2, r0)
+        ## try_jump_context[:] = try_j
+        ## return
     try_jump_context.append(True)
     o.Stmt('{')
     label_exc = New('label')  
@@ -11224,7 +11259,11 @@ def generate_with(it,o):
     a,b,c = New(), New(), New()
     o.Stmt('PyErr_Fetch', ('&', a), ('&', b), ('&', c)) 
     set_toerr_new(o, label_exc)
+    o.XINCREF(a)
+    o.XINCREF(b)
+    o.XINCREF(c)
     o.Stmt('PyFrame_BlockSetup', 'f', 'SETUP_EXCEPT',-1, -1)
+    dropped_temp.append(('WITH', (ref1, r2, a,b,c)))
     traced_tempgen.append({})
     generate_list(it[1],o)
     traced_temp = traced_tempgen[-1].keys()
@@ -11238,7 +11277,7 @@ def generate_with(it,o):
     ref2 = New()
     o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', ('CONST', (None,None,None)), ', NULL)) == 0) goto ', labl, ';')
     bool_ret = None
-    o.Cls(ref2)
+##    o.Cls(ref2, r2)
     UseLabl()
     raised = None
 ##        ref2 = Expr1(('!PyObject_Call', r2, ('CONST', (None,None,None)), 'NULL'),o)
@@ -11250,10 +11289,14 @@ def generate_with(it,o):
         o.Raw('PyTraceBack_Here(f);') 
         generate_clear_temp_on_exception(o, traced_temp)
         ae,be,ce = get_exc_info(o)
+        o.XINCREF(ae)
+        o.XINCREF(be)
+        o.XINCREF(ce)
         tupl = New()
         o.Raw(tupl, ' = PyTuple_Pack(3, ', ae, ', ', be, ', ', ce, ');')
         ref2 = New()
         o.Raw('if ((', ref2, ' = PyObject_Call(', r2, ', ', tupl, ', NULL)) == 0) goto ', labl, ';')
+        o.Cls(tupl, r2)
         bool_ret = New('int')
         o.Raw('if (', ref2, ' == Py_None) ', bool_ret, ' = 0;')
         o.Raw('else {')
@@ -11261,6 +11304,7 @@ def generate_with(it,o):
         o.Raw('}')
         o.Cls(ref2)
         UseLabl()
+
         o.Stmt('PyFrame_BlockPop', 'f')
         o.Raw('if (', bool_ret, ') {')
         o.Stmt('PyErr_Restore', a,b,c)
@@ -11272,13 +11316,15 @@ def generate_with(it,o):
 ##            o.Stmt('PyErr_Restore', a,b,c)
         o.Raw('}')
     o.Raw('}')
-    o.Cls(ref2, a, b, c)
+    o.DECREF(r0)
+    o.Cls(ref2, a, b, c, r0, r2, r1)
 #        o.Cls(*refs) 
     if raised is not None:
         o.Raw('if (', raised, ' && !', bool_ret,') { goto ',labl, '; }')
     UseLabl()
     o.Cls(raised, bool_ret)
     set_toerr_final(o)
+    del dropped_temp[-1]
     try_jump_context[:] = try_j
     return
 
@@ -11943,7 +11989,8 @@ def generate_ssize_t_expr(it):
             o.Cls(v1)
             return o, size_t
     if it[0] == '!@PyInt_FromSsize_t':
-        return Out(), it[1]    
+##        print '/2', it
+        return Out(), ConC(it[1]) # for prevent Cls of temp 'for' count 
     else:
         o = Out()
         ref2 = Expr1(it, o)
@@ -12341,6 +12388,53 @@ def generate_logical_expr(it, logic = None):
         o.Raw(logic,' = ', it0[1:], '(', ref, ', ', len(s_t), ', ', generate_chars_literal(s_t), ', ', s_2, ');')
         o.Cls(ref)
         return o,logic
+    if it0 == '!NCMP':
+        tu = list(it[1])
+        to_cls = []
+        logic2 = New('int')
+        o.Raw(logic, ' = 0;')
+        ref1 = Expr1(tu[0], o)
+        ref2 = Expr1(tu[2], o)
+        if tu[1] == 'is':
+            o.Stmt(logic2, '=', ref1, '==', ref2)
+        elif tu[1] == 'is not':    
+            o.Stmt(logic2, '=', ref1, '!=', ref2)
+        elif tu[1] == 'in':    
+            o.Stmt(logic2, '=', 'PySequence_Contains', ref2, ref1)
+        elif tu[1] == 'not in':    
+            o.Stmt(logic2, '=', 'PySequence_Contains', ref2, ref1)
+            o.Raw(logic2, ' = ! ', logic2, ';')
+        else:    
+            o.Stmt(logic2, '=', 'PyObject_RichCompareBool', ref1, ref2, op_2_c_op[tu[1]])
+        del tu[:3]
+        to_cls.append(ref1)
+        ref1 = ref2 
+        o.Raw('if (', logic2, ') {')
+        while len(tu) > 1:
+            ref2 = Expr1(tu[1], o)
+            if tu[0] == 'is':
+                o.Stmt(logic2, '=', ref1, '==', ref2)
+            elif tu[0] == 'is not':    
+                o.Stmt(logic2, '=', ref1, '!=', ref2)
+            elif tu[0] == 'in':    
+                o.Stmt(logic2, '=', 'PySequence_Contains', ref2, ref1)
+            elif tu[0] == 'not in':    
+                o.Stmt(logic2, '=', 'PySequence_Contains', ref2, ref1)
+                o.Raw(logic2, ' = ! ', logic2, ';')
+            else:    
+                o.Stmt(logic2, '=', 'PyObject_RichCompareBool', ref1, ref2, op_2_c_op[tu[0]])
+            del tu[:2]
+            to_cls.append(ref1)
+            ref1 = ref2 
+            o.Raw('if (', logic2, ') {')
+        o.Raw(logic, ' = 1;')
+        for r in range(len(to_cls)):
+            o.Raw('}')
+        o.Cls(logic2)
+        o.Cls(*to_cls) 
+        o.Cls(ref1)            
+        return o, logic
+        
     ref1 = Expr1(it, o)
     return ToTrue(o,logic,ref1, it)
  
@@ -14319,7 +14413,7 @@ def collect_modules_attr(ret):
                 _3(v[0][0], 'ModuleAttr', v[1])  
 
 
-variable_module_attr = ('time',)
+variable_module_attr = ('time', 'strptime', '_strptime', 'textwrap')
 
 sys_const = ('byteorder', 'subversion', 'builtin_module_names', 
              'copyright', 'hexversion', 'maxint', 'maxsize', 'maxunicode',
@@ -15486,6 +15580,7 @@ def generate_store(it, ref, o, expr):
         return
 # Code crash unknown -- no crash currently   
     if it[0] == 'PyObject_SetItem' and it[2][0] == '!@PyInt_FromSsize_t':
+##        print '/3', it
         ref1 = Expr1(it[1], o)
         islist = TypeExpr(it[1]) == Kl_List
         o.ClsFict(ref)
@@ -16445,6 +16540,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
         o.Cls(ref)
         return ref1
     if head == 'from_ceval_BINARY_SUBSCR' and it[2][0] == '!@PyInt_FromSsize_t':
+##        print '/5'
         t = TypeExpr(it[1])
         islist = t == Kl_List
         if not islist and t is not None and t != Kl_Dict and t != Kl_Tuple:
@@ -16704,6 +16800,7 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
     if head == 'c_BINARY_SUBSCR_ADDED_INT' and TypeExpr(it[1]) is not None:
         Fatal('GenExpr', it)
     if head == '@PyInt_FromSsize_t':
+##        print '/1', it[2]
         return GenExpr(it[2],o, forcenewg)
         
     if head in ('c_PyCmp_EQ_Int', 'c_PyCmp_NE_Int', 'c_PyCmp_LT_Int', 'c_PyCmp_LE_Int', 'c_PyCmp_GT_Int', 'c_PyCmp_GE_Int'):
