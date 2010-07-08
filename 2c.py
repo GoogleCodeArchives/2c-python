@@ -13817,8 +13817,8 @@ def repl(ret):
         r0 = ret[0]
         if r0 == '!PySequence_Tuple' and TypeExpr(ret[1]) == Kl_Tuple:
             ret = ret[1]
-        if ret == ('!LOAD_GLOBAL', '__file__') or ret ==  ('!LOAD_NAME', '__file__'):
-            ret = ('CONST', current_co.co_filename)
+        ## if ret == ('!LOAD_GLOBAL', '__file__') or ret ==  ('!LOAD_NAME', '__file__'):
+            ## ret = ('CONST', current_co.co_filename)
         if r0 == '!IMPORT_NAME':
             CheckExistListImport(dotted_name_to_first_name(ret[1]))   
         if r0 == 'IMPORT_FROM_AS':
@@ -14938,7 +14938,10 @@ def upgrade_op2(ret, nm = None):
             if type(reti) is tuple and len(reti) == 2 and \
                reti[0] in ('STORE_NAME', 'STORE_GLOBAL') and \
                reti[1] in all_calc_const:
-                calc_const_value[v[0][0]] = ret[2]
+                ## pprint.pprint(ret)
+                ## pprint.pprint(v)   
+                ## pprint.pprint((reti[1], ret[2]))
+                calc_const_value[reti[1]] = ret[2]
                 reti = ('STORE_CALC_CONST', reti)
             elif reti[0] == 'SET_VARS':    
                 sretii = []
