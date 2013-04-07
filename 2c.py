@@ -28,7 +28,7 @@ is_pypy = 'PyPy' in sys.version
 
 try:
     import android
-    sys.argv.extend(['-c', \
+    sys.argv.extend(['-c -e ', \
         '/mnt/sdcard/sl4a/scripts/zipfile.py']) # = sys.argv + [sys.argv[0]]
     sys.stdout = open(sys.argv[0] + '.log', 'w')
 except:
@@ -68,6 +68,7 @@ class PrettyPrinter:
     def pformat(self, object):
         sio = _StringIO()
         self._format(object, sio, 0, 0, {}, 0)
+        print self._width, ' ??? '
         return sio.getvalue()
 
     def isrecursive(self, object):
@@ -25088,6 +25089,38 @@ Libr('empty_buf_protocol',
 };
 """)
 
+Libr('ping_threading',
+"""
+static int ping_threading (void);
+""",
+"""
+#if PYTHON_VERSION < 300
+// We share this with CPython bytecode main loop.
+PyAPI_DATA(volatile int) _Py_Ticker;
+#else
+extern volatile int _Py_Ticker;
+#define _Py_CheckInterval 20
+#endif
+static int ping_threading (void)
+{
+    if ( --_Py_Ticker < 0 )
+    {
+        PyThreadState *tstate = 0;
+        _Py_Ticker = _Py_CheckInterval;
+        if (Py_MakePendingCalls() < 0) return -1;
+        tstate = PyThreadState_GET();
+        assert (tstate);
+        if (tstate->async_exc != NULL) {
+            PyObject * x = tstate->async_exc;
+            tstate->async_exc = NULL;
+            PyErr_SetNone(x);
+            Py_DECREF(x);
+            return -1;\
+        } 
+    }
+}
+""")
+
 Libr('cfunc_parse_args', 
 """
 static int cfunc_parse_args(PyObject *arg, PyObject *kw, PyObject *argdefs, PyCodeObject * co, PyObject ** fastlocals);
@@ -26140,6 +26173,9 @@ def generate_return_statement(it, o):
 ##    current_co.returns[len(o)] = 0
     retlabl = ConC('ret_label_', current_co.return_cnt)
     o.Raw(retlabl, ':;')
+    o.Raw('if (ping_threading () == -1) goto ', labl, ';')
+    UseLabl()
+    Used('ping_threading')
     for drop in dropped_temp:
         for t in drop[1]:
             if istempref(t):
