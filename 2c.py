@@ -68,7 +68,7 @@ class PrettyPrinter:
     def pformat(self, object):
         sio = _StringIO()
         self._format(object, sio, 0, 0, {}, 0)
-        print self._width, ' ??? '
+###        print self._width, ' ??? '
         return sio.getvalue()
 
     def isrecursive(self, object):
@@ -25118,8 +25118,313 @@ static int ping_threading (void)
             return -1;\
         } 
     }
+    return 0;
 }
 """)
+
+Libr('parse_arguments',
+"""
+static int parse_arguments (PyObject *func, PyObject *arg, PyObject *kw, PyObject * co, PyObject * argdefs, PyObject ** fastlocals);
+""",
+"""
+
+static int
+PyEval_Eval3CCodeEx(PyCodeObject *co, PyObject *locals,
+	   PyObject **args, int argcount, PyObject **kws, int kwcount,
+	   PyObject **defs, int defcount
+#ifndef PYPY_VERSION
+           , PyObject *closure, PyObject ** fastlocals);
+#else
+           , PyObject ** fastlocals);
+#endif
+
+static int parse_arguments (PyObject *func, PyObject *arg, PyObject *kw, PyObject * co, PyObject * argdefs, PyObject ** fastlocals)
+{
+	int result;
+	PyObject **d, **k;
+	Py_ssize_t nk, nd;
+
+	if (argdefs != NULL && PyTuple_Check(argdefs)) {
+		d = &PyTuple_GET_ITEM((PyTupleObject *)argdefs, 0);
+		nd = PyTuple_Size(argdefs);
+	}
+	else {
+		d = NULL;
+		nd = 0;
+	}
+
+	if (kw != NULL && PyDict_Check(kw)) {
+		Py_ssize_t pos, i;
+		nk = PyDict_Size(kw);
+		k = PyMem_NEW(PyObject *, 2*nk);
+		if (k == 0) {
+			PyErr_NoMemory();
+			return -1;
+		}
+		pos = i = 0;
+		while (PyDict_Next(kw, &pos, &k[i], &k[i+1]))
+			i += 2;
+		nk = i/2;
+		/* XXX This is broken if the caller deletes dict items! */
+	}
+	else {
+		k = NULL;
+		nk = 0;
+	}
+
+	result = PyEval_Eval3CCodeEx(
+		(PyCodeObject *)co,
+		(PyObject *)NULL,
+		&PyTuple_GET_ITEM(arg, 0), PyTuple_Size(arg),
+		k, nk, d, nd, 0, fastlocals);
+
+
+	if (k != NULL)
+		PyMem_DEL(k);
+
+	return result;
+}
+
+/* Local variable macros */
+
+#undef GETLOCAL
+#undef SETLOCAL
+#define GETLOCAL(i)	(fastlocals[i])
+
+#define SETLOCAL(i, value)	do { PyObject *tmp = GETLOCAL(i); \
+				     GETLOCAL(i) = value; \
+                                     Py_XDECREF(tmp); } while (0)
+
+static int
+PyEval_Eval3CCodeEx(PyCodeObject *co, PyObject *locals,
+	   PyObject **args, int argcount, PyObject **kws, int kwcount,
+	   PyObject **defs, int defcount
+#ifndef PYPY_VERSION
+           , PyObject *closure, PyObject ** fastlocals)
+#else
+           , PyObject ** fastlocals)
+#endif
+{
+	PyThreadState *tstate = PyThreadState_GET();
+	PyObject *x, *u;
+
+
+        assert(tstate != NULL);
+	if (co->co_argcount > 0 ||
+	    co->co_flags & (CO_VARARGS | CO_VARKEYWORDS)) {
+		int i;
+		int n = argcount;
+		PyObject *kwdict = NULL;
+		if (co->co_flags & CO_VARKEYWORDS) {
+			kwdict = PyDict_New();
+			if (kwdict == 0)
+				goto fail;
+			i = co->co_argcount;
+			if (co->co_flags & CO_VARARGS)
+				i++;
+			SETLOCAL(i, kwdict);
+		}
+		if (argcount > co->co_argcount) {
+			if (!(co->co_flags & CO_VARARGS)) {
+				PyErr_Format(PyExc_TypeError,
+				    "%.200s() takes %s %d "
+				    "%sargument%s (%d given)",
+				    PyString_AsString(co->co_name),
+				    defcount ? "at most" : "exactly",
+				    co->co_argcount,
+				    kwcount ? "non-keyword " : "",
+				    co->co_argcount == 1 ? "" : "s",
+				    argcount);
+				goto fail;
+			}
+			n = co->co_argcount;
+		}
+		for (i = 0; i < n; i++) {
+			x = args[i];
+			Py_INCREF(x);
+			SETLOCAL(i, x);
+		}
+		if (co->co_flags & CO_VARARGS) {
+			u = PyTuple_New(argcount - n);
+			if (u == 0)
+				goto fail;
+			SETLOCAL(co->co_argcount, u);
+			for (i = n; i < argcount; i++) {
+				x = args[i];
+				Py_INCREF(x);
+				PyTuple_SET_ITEM(u, i-n, x);
+			}
+		}
+		for (i = 0; i < kwcount; i++) {
+			PyObject **co_varnames;
+			PyObject *keyword = kws[2*i];
+			PyObject *value = kws[2*i + 1];
+			int j;
+                        if (keyword == 0 || !(PyString_Check(keyword)
+#ifdef Py_USING_UNICODE
+                                     || PyUnicode_Check(keyword)
+#endif
+                            )) {
+				PyErr_Format(PyExc_TypeError,
+				    "%.200s() keywords must be strings",
+				    PyString_AsString(co->co_name));
+				goto fail;
+			}
+			/* Speed hack: do raw pointer compares. As names are
+			   normally interned this should almost always hit. */
+                        co_varnames = ((PyTupleObject *)(co->co_varnames))->ob_item;
+                        for (j = 0; j < co->co_argcount; j++) {
+                            PyObject *nm = co_varnames[j];
+                            if (nm == keyword)
+                                goto kw_found;
+                        }
+                        /* Slow fallback, just in case */
+                        for (j = 0; j < co->co_argcount; j++) {
+                            PyObject *nm = co_varnames[j];
+                            int cmp = PyObject_RichCompareBool(
+                                keyword, nm, Py_EQ);
+                            if (cmp > 0)
+                                goto kw_found;
+                            else if (cmp < 0)
+                                goto fail;
+                        }
+                        if (kwdict == 0) {
+                            PyObject *kwd_str = kwd_as_string(keyword);
+                            if (kwd_str) {
+                                PyErr_Format(PyExc_TypeError,
+                                            "%.200s() got an unexpected "
+                                            "keyword argument '%.400s'",
+                                            PyString_AsString(co->co_name),
+                                            PyString_AsString(kwd_str));
+                                Py_DECREF(kwd_str);
+                            }
+                            goto fail;
+                        }
+                        PyDict_SetItem(kwdict, keyword, value);
+                        continue;
+
+kw_found:
+			if (GETLOCAL(j) != NULL) {
+                            PyObject *kwd_str = kwd_as_string(keyword);
+                            if (kwd_str) {
+                                PyErr_Format(PyExc_TypeError,
+                                            "%.200s() got multiple "
+                                            "values for keyword "
+                                            "argument '%.400s'",
+                                            PyString_AsString(co->co_name),
+                                            PyString_AsString(kwd_str));
+                                Py_DECREF(kwd_str);
+                            }
+			}
+			Py_INCREF(value);
+			SETLOCAL(j, value);
+		}
+		if (argcount < co->co_argcount) {
+			int m = co->co_argcount - defcount;
+			for (i = argcount; i < m; i++) {
+				if (GETLOCAL(i) == 0) {
+                                    int j, given = 0;
+                                    for (j = 0; j < co->co_argcount; j++)
+                                        if (GETLOCAL(j))
+                                            given++;
+                                    PyErr_Format(PyExc_TypeError,
+                                        "%.200s() takes %s %d "
+                                        "argument%s (%d given)",
+                                        PyString_AsString(co->co_name),
+                                        ((co->co_flags & CO_VARARGS) ||
+                                        defcount) ? "at least"
+                                                : "exactly",
+                                        m, m == 1 ? "" : "s", given);
+                                    goto fail;
+				}
+			}
+			if (n > m)
+				i = n - m;
+			else
+				i = 0;
+			for (; i < defcount; i++) {
+				if (GETLOCAL(m+i) == 0) {
+					PyObject *def = defs[i];
+					Py_INCREF(def);
+					SETLOCAL(m+i, def);
+				}
+			}
+		}
+	}
+	else {
+		if (argcount > 0 || kwcount > 0) {
+			PyErr_Format(PyExc_TypeError,
+				     "%.200s() takes no arguments (%d given)",
+				     PyString_AsString(co->co_name),
+				     argcount + kwcount);
+			goto fail;
+		}
+	}
+	/* Allocate and initialize storage for cell vars, and copy free
+	   vars into frame.  This isn't too efficient right now. */
+	if (PyTuple_GET_SIZE(co->co_cellvars)) {
+		int i, j, nargs, found;
+		char *cellname, *argname;
+		PyObject *c;
+
+		nargs = co->co_argcount;
+		if (co->co_flags & CO_VARARGS)
+			nargs++;
+		if (co->co_flags & CO_VARKEYWORDS)
+			nargs++;
+
+		/* Initialize each cell var, taking into account
+		   cell vars that are initialized from arguments.
+
+		   Should arrange for the compiler to put cellvars
+		   that are arguments at the beginning of the cellvars
+		   list so that we can march over it more efficiently?
+		*/
+		for (i = 0; i < PyTuple_GET_SIZE(co->co_cellvars); ++i) {
+			cellname = PyString_AS_STRING(
+				PyTuple_GET_ITEM(co->co_cellvars, i));
+			found = 0;
+			for (j = 0; j < nargs; j++) {
+				argname = PyString_AS_STRING(
+					PyTuple_GET_ITEM(co->co_varnames, j));
+				if (strcmp(cellname, argname) == 0) {
+					c = PyCell_New(GETLOCAL(j));
+					if (c == 0)
+						goto fail;
+					GETLOCAL(co->co_nlocals + i) = c;
+					found = 1;
+					break;
+				}
+			}
+			if (found == 0) {
+				c = PyCell_New(NULL);
+				if (c == 0)
+					goto fail;
+				SETLOCAL(co->co_nlocals + i, c);
+			}
+		}
+	}
+#ifndef PYPY_VERSION
+	if (PyTuple_GET_SIZE(co->co_freevars)) {
+                assert(0);
+	}
+#endif
+        assert(!(co->co_flags & CO_GENERATOR));
+
+fail: /* Jump here from prelude on failure */
+
+	/* decref'ing the frame can cause __del__ methods to get invoked,
+	   which can call back into Python.  While we're done with the
+	   current Python frame (f), the associated C stack is still in use,
+	   so recursion_depth must be boosted for the duration.
+	*/
+	assert(tstate != NULL);
+	return 0;
+}
+
+
+""")
+
 
 Libr('cfunc_parse_args', 
 """
@@ -25207,7 +25512,7 @@ def write_as_c(cfile, nmmodule):
     first.print_to(c_head1)
 ##    first2.print_to(c_head2)
     first3.print_to(c_head3)
-    if build_executable and not redefined_all and len(fastglob) > 0:
+    if len(fastglob) > 0:
         s = 'enum{'
         n = 0
         for k in fastglob.iterkeys():
@@ -25412,17 +25717,21 @@ def generate_parse_cfunc_args(co, cntvar, o, cntarg, ismeth):
     ismeth = False
     ## for i in range(cntvar):
         ## o.Raw('fastlocals[', i, '] = 0;')
-    if ( ( co.co_flags & (0x4 + 0x8) ) == 0):
+    defa = None
+    if co.c_name in default_args:
+        defa = default_args[co.c_name]
+    if defa == ('CONST', ()):
         defa = None
-        if co.c_name in default_args:
-            defa = default_args[co.c_name]
-        if defa == ('CONST', ()):
-            defa = None
-        if defa is not None:
-            if defa[0] == 'CONST':
-                defa = tuple([('CONST', x) for x in defa[1]])
-            else:
-                defa = defa[1]       # BUILD_TUPLE 
+    if defa is not None:
+        if defa[0] == 'CONST':
+            defaul = defa
+            defa = tuple([('CONST', x) for x in defa[1]])
+        else:
+            defaul = 'GETSTATIC(__default_arg___' + co.c_name + ')'
+            defa = defa[1]       # BUILD_TUPLE         
+    else:
+        defaul = 'NULL'
+    if ( ( co.co_flags & (0x4 + 0x8) ) == 0):
         o.Raw(cntarg, ' = PyTuple_GET_SIZE(args);')
         if defa is None:
             o.Raw('if (kw == 0) {')
@@ -25515,29 +25824,36 @@ def generate_parse_cfunc_args(co, cntvar, o, cntarg, ismeth):
                         o.Raw('fastlocals[', i, '] = ', edefa, ';')
                         o.Raw('Py_INCREF(fastlocals[', i, ']);')
                     else:
-                        print edefa, co.c_name
-                        edefa = Expr1(edefa, o)
-                        o.Raw('fastlocals[', i, '] = ', edefa, ';')
+                        o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM ( GETSTATIC(__default_arg___', co.c_name, ') , ', i-minarg, ');')
+                        o.Raw('Py_INCREF(fastlocals[', i, ']);')                        
+                        ## print edefa, co.c_name
+                        ## edefa = Expr1(edefa, o)
+                        ## o.Raw('fastlocals[', i, '] = ', edefa, ';')
                     o.Raw('} ')
             o.Raw('} else {')
-            for i in range(co.co_argcount):
-                if i < minarg:
-                    o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM (args, ', i, ');')
-                else:
-                    o.Raw('if ( ', i, ' < ', cntarg, ' ) {')
-                    o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM (args, ', i, ');')
-                    o.Raw('} else {')
-                    assert (i-minarg) >= 0
-                    edefa = defa[i-minarg]
-                    if edefa[0] == 'CONST':
-                        o.Raw('fastlocals[', i, '] = ', edefa, ';')
-                        o.Raw('Py_INCREF(fastlocals[', i, ']);')
-                    else:
-                        print edefa
-                        edefa = Expr1(edefa, o)
-                        o.Raw('fastlocals[', i, '] = ', edefa, ';')
-                    o.Raw('} ')
-                o.Raw('Py_INCREF(fastlocals[', i, ']);')
+            o.Raw('if ( parse_arguments (self, args, kw, ', const_to(co), ', ', defaul, ', fastlocals) == -1) goto ', labl, ';')
+            UseLabl()
+            Used('parse_arguments')
+            ## for i in range(co.co_argcount):
+                ## if i < minarg:
+                    ## o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM (args, ', i, ');')
+                ## else:
+                    ## o.Raw('if ( ', i, ' < ', cntarg, ' ) {')
+                    ## o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM (args, ', i, ');')
+                    ## o.Raw('} else {')
+                    ## assert (i-minarg) >= 0
+                    ## edefa = defa[i-minarg]
+                    ## if edefa[0] == 'CONST':
+                        ## o.Raw('fastlocals[', i, '] = ', edefa, ';')
+                        ## o.Raw('Py_INCREF(fastlocals[', i, ']);')
+                    ## else:
+                        ## o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM ( GETSTATIC(__default_arg___', co.c_name, ') , ', i-minarg, ');')
+                        ## o.Raw('Py_INCREF(fastlocals[', i, ']);')                            
+                        ## ## print edefa
+                        ## ## edefa = Expr1(edefa, o)
+                        ## ## o.Raw('fastlocals[', i, '] = ', edefa, ';')
+                    ## o.Raw('} ')
+                ## o.Raw('Py_INCREF(fastlocals[', i, ']);')
             o.Raw('}')
         o.Cls(cntarg)
         return
@@ -25567,37 +25883,15 @@ def generate_parse_cfunc_args(co, cntvar, o, cntarg, ismeth):
                 o.Raw('Py_INCREF(fastlocals[', i, ']);')
             o.Raw('fastlocals[', co.co_argcount, '] = PySequence_GetSlice ( args , ', co.co_argcount , ', PY_SSIZE_T_MAX );')
             o.Raw('} else {')
-            o.Raw('static char *kwlist[] = {', ', '.join(['"' + co.co_varnames[i] + '"' for i in range(co.co_argcount)] + ['NULL']), '};')
-            listargs = ' , '.join(['fastlocals+' + str(i) for i in range(co.co_argcount)])
-            form = ''.join(['O' for i in range(co.co_argcount)])                      
-            o.Raw('if ( !PyArg_ParseTupleAndKeywords ( args , kw , \"', form, '\" , kwlist , ', listargs, ' ) ) goto ', labl, ';')
-            o.Raw('assert(2>3);')
+            o.Raw('if ( parse_arguments (self, args, kw, ', const_to(co), ', ', defaul, ', fastlocals) == -1) goto ', labl, ';')
+            UseLabl()
+            Used('parse_arguments')
             o.Raw('}')
             return
         else:
-            o.Raw(cntarg, ' = PyTuple_GET_SIZE(args);')
-            o.Raw('if (kw == 0) {')
-            if co.co_argcount > 0:
-                o.Raw('if ( ', cntarg, ' < ', co.co_argcount, ' ) {')
-                if co.co_argcount != 1:
-                    o.Raw("PyErr_Format(PyExc_TypeError, \"", co.co_name, "() takes at least ", co.co_argcount, " arguments (%d given)\", ", cntarg, ');')
-                else:
-                    o.Raw("PyErr_Format(PyExc_TypeError, \"", co.co_name, "() takes at least ", co.co_argcount, " argument (%d given)\", ", cntarg, ');')
-                o.Raw('goto ', labl, ';')
-                UseLabl()
-                o.Raw('}')
-    
-            for i in range(co.co_argcount):
-                o.Raw('fastlocals[', i, '] = PyTuple_GET_ITEM (args, ', i, ');')
-                o.Raw('Py_INCREF(fastlocals[', i, ']);')
-            o.Raw('fastlocals[', co.co_argcount, '] = PySequence_GetSlice ( args , ', co.co_argcount , ', PY_SSIZE_T_MAX );')
-            o.Raw('} else {')
-            o.Raw('static char *kwlist[] = {', ', '.join(['"' + co.co_varnames[i] + '"' for i in range(co.co_argcount)] + ['NULL']), '};')
-            listargs = ' , '.join(['fastlocals+' + str(i) for i in range(co.co_argcount)])
-            form = ''.join(['O' for i in range(co.co_argcount)])                      
-            o.Raw('if ( !PyArg_ParseTupleAndKeywords ( args , kw , \"', form, '\" , kwlist , ', listargs, ' ) ) goto ', labl, ';')
-            o.Raw('assert(2>3);')
-            o.Raw('}')
+            o.Raw('if ( parse_arguments (self, args, kw, ', const_to(co), ', ', defaul, ', fastlocals) == -1) goto ', labl, ';')
+            UseLabl()
+            Used('parse_arguments')
             return            
     Fatal('Unhandeled cfunc', co)
     
@@ -36363,6 +36657,18 @@ def GenExpr(it,o, forcenewg=None,typed=None, skip_float = None):
             Fatal('GenExpr', it)
             return None
         if co.can_be_cfunc():
+            if len(it) == 3 and it[2][0] == '!BUILD_TUPLE' and type(it[2][1]) is tuple and len(it[2][1]) > 0:
+                ref = Expr1(it[2], o)
+                if not istempref(ref):
+                    o.INCREF(ref)
+                nmdefault = '__default_arg___' + co.cmds[0][1] 
+                add_fast_glob(nmdefault)
+                o.Stmt('SETSTATIC', nmdefault, ref)
+                o.ClsFict(ref)
+                if istempref(ref) and ref not in g_refs2:
+                    o.Raw(ref, ' = 0;')   
+                ref = None
+            
             ref1 = New(None, forcenewg)
             met, ismeth = type_methfunc(co)
             if not ismeth:
