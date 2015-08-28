@@ -15,7 +15,6 @@ def main():
 print __name__
 print fib6, fib6.__code__
 print fib6.__code__.co_c_function
-#pprint.pprint(dir(fib6))
 print main
 if __name__ == '__main__':
    d1 = main()
