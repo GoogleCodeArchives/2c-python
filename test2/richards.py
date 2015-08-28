@@ -6,7 +6,6 @@
 #  Java version:  Copyright (C) 1995 Sun Microsystems, Inc.
 #  Translation from C++, Mario Wolczko
 #  Outer loop added by Alex Jacoby
-
 # Task IDs
 I_IDLE = 1
 I_WORK = 2
