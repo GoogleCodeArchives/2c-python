@@ -1,9 +1,7 @@
 #!/usr/bin/python
-# Back-Propagation Neural Networks
 # 
 # Written in Python.  See http://www.python.org/
 #
-# Neil Schemenauer <nascheme@enme.ucalgary.ca>
 
 import math
 import random as random
