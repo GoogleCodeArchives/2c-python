@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-
 """
 "PYSTONE" Benchmark Program
 
